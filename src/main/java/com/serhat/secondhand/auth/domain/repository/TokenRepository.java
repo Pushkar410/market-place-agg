@@ -1,0 +1,72 @@
+package com.serhat.secondhand.auth.domain.repository;
+
+import com.serhat.secondhand.auth.domain.entity.Token;
+import com.serhat.secondhand.auth.domain.entity.enums.TokenStatus;
+import com.serhat.secondhand.auth.domain.entity.enums.TokenType;
+import com.serhat.secondhand.user.domain.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+ public interface TokenRepository extends JpaRepository<Token, UUID> {
+
+    Optional<Token> findByToken(String token);
+
+    Optional<Token> findByTokenAndTokenStatus(String token, TokenStatus tokenStatus);
+
+    List<Token> findByUserAndTokenStatus(User user, TokenStatus tokenStatus);
+
+    List<Token> findByUserAndTokenTypeAndTokenStatus(User user, TokenType tokenType, TokenStatus tokenStatus);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Token t
+            SET t.tokenStatus = :newStatus
+            WHERE t.user = :user
+              AND t.tokenType = :tokenType
+              AND t.tokenStatus = :currentStatus
+            """)
+    int bulkUpdateUserTokensByTypeAndStatus(@Param("user") User user,
+                                            @Param("tokenType") TokenType tokenType,
+                                            @Param("currentStatus") TokenStatus currentStatus,
+                                            @Param("newStatus") TokenStatus newStatus);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Token t
+            SET t.tokenStatus = :newStatus
+            WHERE t.user = :user
+              AND t.tokenStatus = :currentStatus
+            """)
+    int bulkUpdateUserTokensByStatus(@Param("user") User user,
+                                     @Param("currentStatus") TokenStatus currentStatus,
+                                     @Param("newStatus") TokenStatus newStatus);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Token t
+            SET t.tokenStatus = :newStatus
+            WHERE t.expiresAt <= :now
+              AND t.tokenStatus = :currentStatus
+            """)
+    int bulkExpireTokens(@Param("now") LocalDateTime now,
+                         @Param("currentStatus") TokenStatus currentStatus,
+                         @Param("newStatus") TokenStatus newStatus);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Token t
+            SET t.tokenStatus = :newStatus
+            WHERE t.familyId = :familyId
+            """)
+    int bulkUpdateTokenFamilyStatus(@Param("familyId") UUID familyId,
+                                    @Param("newStatus") TokenStatus newStatus);
+}

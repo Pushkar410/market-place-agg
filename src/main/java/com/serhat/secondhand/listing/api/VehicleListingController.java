@@ -1,0 +1,82 @@
+package com.serhat.secondhand.listing.api;
+
+import com.serhat.secondhand.core.result.Result;
+import com.serhat.secondhand.core.result.ResultResponses;
+import com.serhat.secondhand.listing.api.support.CategoryListingControllerSupport;
+import com.serhat.secondhand.listing.application.vehicle.VehicleListingService;
+import com.serhat.secondhand.listing.domain.dto.request.vehicle.VehicleCreateRequest;
+import com.serhat.secondhand.listing.domain.dto.request.vehicle.VehicleUpdateRequest;
+import com.serhat.secondhand.listing.domain.dto.response.listing.ListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.listing.VehicleListingFilterDto;
+import com.serhat.secondhand.listing.domain.dto.response.vehicle.VehicleListingDto;
+import com.serhat.secondhand.user.domain.entity.User;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/vehicles")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Vehicle Listings", description = "Vehicle listing CRUD operations and search")
+public class VehicleListingController {
+
+    private final VehicleListingService vehicleListingService;
+
+    @PostMapping("/create-listing")
+    @Operation(summary = "Create a new vehicle listing")
+    public ResponseEntity<?> createVehicleListing(
+            @Valid @RequestBody VehicleCreateRequest request,
+            @AuthenticationPrincipal User currentUser) {
+
+        log.info("Creating vehicle listing for user: {}", currentUser.getId());
+        var result = vehicleListingService.createVehicleListing(request, currentUser.getId());
+        return CategoryListingControllerSupport.buildCreateResponse(result, "/api/v1/vehicles");
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update a vehicle listing")
+    public ResponseEntity<?> updateVehicleListing(
+            @PathVariable UUID id,
+            @Valid @RequestBody VehicleUpdateRequest request,
+            @AuthenticationPrincipal User currentUser) {
+
+        log.info("Updating vehicle listing: {} by user: {}", id, currentUser.getId());
+
+        return ResultResponses.ok(vehicleListingService.updateVehicleListing(id, request, currentUser.getId()));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get vehicle listing details")
+    public ResponseEntity<?> getVehicleDetails(@PathVariable UUID id) {
+        VehicleListingDto vehicle = vehicleListingService.getVehicleDetails(id);
+        return ResultResponses.ok(Result.success(vehicle));
+    }
+
+    @GetMapping("/brand/{brand-id}/model/{model-id}")
+    @Operation(summary = "Find vehicles by brand and model")
+    public ResponseEntity<?> findByBrandAndModel(
+            @PathVariable("brand-id") UUID brandId,
+            @PathVariable("model-id") UUID modelId,
+            Pageable pageable) {
+        Page<VehicleListingDto> vehicles = vehicleListingService.findByBrandAndModel(brandId, modelId, pageable);
+        return ResultResponses.ok(Result.success(vehicles));
+    }
+
+    @PostMapping("/filter")
+    @Operation(summary = "Filter vehicle listings with advanced criteria")
+    public ResponseEntity<?> filterVehicles(@RequestBody VehicleListingFilterDto filters) {
+        log.info("Filtering vehicles with criteria: {}", filters);
+        Page<ListingDto> result = vehicleListingService.filterVehicles(filters);
+        return ResultResponses.ok(Result.success(result));
+    }
+}

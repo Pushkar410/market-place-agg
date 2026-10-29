@@ -1,0 +1,304 @@
+import {useTranslation} from "react-i18next";
+import {lazy, Suspense} from 'react';
+import {Navigate, Route, Routes, useSearchParams} from 'react-router-dom';
+import {useAuth} from '../../auth/AuthContext.jsx';
+import {ROUTES} from '../constants/routes.js';
+import LoadingIndicator from '../components/ui/LoadingIndicator.jsx';
+
+// Layouts - Always loaded
+import MainLayout from '../components/layout/MainLayout.jsx';
+import AuthLayout from '../components/layout/AuthLayout.jsx';
+import AggregatorLayout from '../../aggregator/components/AggregatorLayout.jsx';
+import ProtectedRoute from './ProtectedRoute.jsx';
+import PublicRoute from './PublicRoute.jsx';
+import AdminRoute from './AdminRoute.jsx';
+
+// Critical Routes - Eager loaded (always needed on initial load)
+import HomePage from '../../home/pages/HomePage.jsx';
+import AboutPage from '../../home/pages/AboutPage.jsx';
+
+// High Priority - Lazy loaded (frequently accessed)
+const AggregatorPage = lazy(() => import('../../aggregator/pages/AggregatorPage.jsx'));
+const ShareListingPage = lazy(() => import('../../aggregator/pages/ShareListingPage.jsx'));
+const ListingsPage = lazy(() => import('../../listing/pages/ListingsPage.jsx'));
+const ListingDetailPage = lazy(() => import('../../listing/pages/ListingDetailPage.jsx'));
+const ListingsPrefilterPage = lazy(() => import('../../listing/pages/ListingsPrefilterPage.jsx'));
+
+// Auth Pages - Lazy loaded
+const LoginPage = lazy(() => import('../../auth/pages/LoginPage.jsx'));
+const RegisterPage = lazy(() => import('../../auth/pages/RegisterPage.jsx'));
+const ForgotPasswordPage = lazy(() => import('../../auth/pages/ForgotPasswordPage.jsx'));
+const ChangePasswordPage = lazy(() => import('../../auth/pages/ChangePasswordPage.jsx'));
+const AccountVerificationPage = lazy(() => import('../../auth/pages/AccountVerificationPage.jsx'));
+const OAuthCallbackPage = lazy(() => import('../../auth/pages/OAuthCallbackPage.jsx'));
+const OAuthErrorPage = lazy(() => import('../../auth/pages/OAuthErrorPage.jsx'));
+const OAuthCompletePage = lazy(() => import('../../auth/pages/OAuthCompletePage.jsx'));
+
+// User Pages - Lazy loaded
+const AccountHubPage = lazy(() => import('../../user/pages/AccountHubPage.jsx'));
+const ProfilePage = lazy(() => import('../../user/pages/ProfilePage.jsx'));
+const UserProfilePage = lazy(() => import('../../user/pages/UserProfilePage.jsx'));
+
+// Listing Management - Lazy loaded
+const MyListingsPage = lazy(() => import('../../listing/pages/MyListingsPage.jsx'));
+const CreateListingPage = lazy(() => import('../../listing/pages/CreateListingPage.jsx'));
+const EditListingPage = lazy(() => import('../../listing/pages/EditListingPage.jsx'));
+
+// Dashboard Pages - Lazy loaded (heavy with charts)
+const SellerDashboardPage = lazy(() => import('../../dashboard/pages/SellerDashboardPage.jsx'));
+const BuyerDashboardPage = lazy(() => import('../../dashboard/pages/BuyerDashboardPage.jsx'));
+
+// Chat & Communication - Lazy loaded
+const AuraChatPage = lazy(() => import('../../ai/pages/AuraChatPage.jsx'));
+const InboxPage = lazy(() => import('../../inbox/pages/InboxPage.jsx'));
+const LegacyChatInboxRedirect = () => {
+ const [sp] = useSearchParams();
+ const room = sp.get('room');
+ const q = new URLSearchParams();
+ q.set("tab");
+ if (room) {
+ q.set('room', room);
+ }
+ return <Navigate to={`${ROUTES.INBOX}?${q.toString()}`} replace />;
+};
+
+// Forum - Lazy loaded
+const ForumPage = lazy(() => import('../../forum/pages/ForumPage.jsx'));
+
+// Shopping & Orders - Lazy loaded
+const ShoppingCartPage = lazy(() => import('../../cart/pages/ShoppingCartPage.jsx'));
+const CheckoutPage = lazy(() => import('../../cart/pages/CheckoutPage.jsx'));
+const OrderSuccessPage = lazy(() => import('../../order/pages/OrderSuccessPage.jsx'));
+const MyOrdersPage = lazy(() => import('../../order/pages/MyOrdersPage.jsx'));
+const ISoldPage = lazy(() => import('../../order/pages/ISoldPage.jsx'));
+const OrderShipmentPage = lazy(() => import('../../order/pages/OrderShipmentPage.jsx'));
+
+// Favorites & Lists - Lazy loaded
+const FavoritesPage = lazy(() => import('../../favorites/pages/FavoritesPage'));
+const FavoriteListDetailPage = lazy(() => import('../../favoritelist/pages/FavoriteListDetailPage.jsx'));
+
+// Payments - Lazy loaded
+const PaymentsPage = lazy(() => import('../../payments/pages/PaymentsPage.jsx'));
+const PayListingFeePage = lazy(() => import('../../payments/pages/PayListingFeePage.jsx'));
+const PaymentMethodsPage = lazy(() => import('../../payments/pages/PaymentMethodsPage.jsx'));
+
+// Reviews & Ratings - Lazy loaded
+const UserReviewsPage = lazy(() => import('../../reviews/pages/UserReviewsPage.jsx'));
+
+// Other Features - Lazy loaded
+const ComplaintsPage = lazy(() => import('../../complaint/pages/ComplaintsPage.jsx'));
+const AgreementsPage = lazy(() => import('../../agreements/pages/AgreementsPage.jsx'));
+const SecurityPage = lazy(() => import('../../audit/pages/SecurityPage.jsx'));
+const SellerCampaignsPage = lazy(() => import('../../campaign/pages/MyCouponsPage.jsx'));
+const PlatformCouponsPage = lazy(() => import('../../coupon/pages/PlatformCouponsPage.jsx'));
+const AdminCouponsPage = lazy(() => import('../../admin/pages/AdminCouponsPage.jsx'));
+const OffersPage = lazy(() => import('../../offer/pages/OffersPage.jsx'));
+
+// Suspense Fallback Component
+const PageLoader = () => {
+ const { t } = useTranslation();
+ return (
+ <div className="flex items-center justify-center min-h-screen">
+ <div className="text-center">
+ <LoadingIndicator size="h-12 w-12" />
+ <p className="mt-4 text-sm text-text-secondary">{t("loading")}</p>
+ </div>
+ </div>
+ );
+};
+const AppRoutes = () => {
+ const authContext = useAuth();
+ const {
+ isLoading
+ } = authContext;
+ if (isLoading) {
+ return <div className="flex items-center justify-center min-h-screen">
+ <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+ </div>;
+ }
+ return <Suspense fallback={<PageLoader />}>
+ <Routes>
+ {/* Public Routes with Auth Layout */}
+ <Route element={<AuthLayout />}>
+ <Route path={ROUTES.LOGIN} element={<PublicRoute>
+ <LoginPage />
+ </PublicRoute>} />
+ <Route path={ROUTES.AUTH_CALLBACK} element={<PublicRoute>
+ <Suspense fallback={<PageLoader />}>
+ <OAuthCallbackPage />
+ </Suspense>
+ </PublicRoute>} />
+ <Route path={ROUTES.AUTH_ERROR} element={<PublicRoute>
+ <Suspense fallback={<PageLoader />}>
+ <OAuthErrorPage />
+ </Suspense>
+ </PublicRoute>} />
+ <Route path={ROUTES.AUTH_COMPLETE} element={<PublicRoute>
+ <Suspense fallback={<PageLoader />}>
+ <OAuthCompletePage />
+ </Suspense>
+ </PublicRoute>} />
+ <Route path={ROUTES.REGISTER} element={<PublicRoute>
+ <RegisterPage />
+ </PublicRoute>} />
+ <Route path={ROUTES.FORGOT_PASSWORD} element={<PublicRoute>
+ <Suspense fallback={<PageLoader />}>
+ <ForgotPasswordPage />
+ </Suspense>
+ </PublicRoute>} />
+ </Route>
+
+ {/* Aggregator: lean layout, the product's front door */}
+ <Route element={<AggregatorLayout />}>
+ <Route path={ROUTES.HOME} element={<Suspense fallback={<PageLoader />}>
+ <AggregatorPage />
+ </Suspense>} />
+ <Route path={ROUTES.SHARE_LISTING} element={<Suspense fallback={<PageLoader />}>
+ <ShareListingPage />
+ </Suspense>} />
+ </Route>
+
+ {/* Public Routes with Main Layout */}
+ <Route element={<MainLayout />}>
+ <Route path={ROUTES.MARKETPLACE_HOME} element={<HomePage />} />
+ <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+ <Route path={ROUTES.LISTINGS_PREFILTER} element={<Suspense fallback={<PageLoader />}>
+ <ListingsPrefilterPage />
+ </Suspense>} />
+ <Route path={ROUTES.LISTINGS} element={<Suspense fallback={<PageLoader />}>
+ <ListingsPage />
+ </Suspense>} />
+ <Route path={ROUTES.FORUM} element={<Suspense fallback={<PageLoader />}>
+ <ForumPage />
+ </Suspense>} />
+ <Route path={ROUTES.LISTING_DETAIL(':id')} element={<Suspense fallback={<PageLoader />}>
+ <ListingDetailPage />
+ </Suspense>} />
+ <Route path={ROUTES.FAVORITE_LIST_DETAIL(':listId')} element={<Suspense fallback={<PageLoader />}>
+ <FavoriteListDetailPage />
+ </Suspense>} />
+ </Route>
+
+ {/* Protected Routes with Main Layout */}
+ <Route element={<ProtectedRoute>
+ <MainLayout />
+ </ProtectedRoute>}>
+ <Route path={ROUTES.DASHBOARD} element={<Suspense fallback={<PageLoader />}>
+ <AccountHubPage />
+ </Suspense>} />
+ <Route path={ROUTES.SELLER_DASHBOARD} element={<Suspense fallback={<PageLoader />}>
+ <SellerDashboardPage />
+ </Suspense>} />
+ <Route path={ROUTES.BUYER_DASHBOARD} element={<Suspense fallback={<PageLoader />}>
+ <BuyerDashboardPage />
+ </Suspense>} />
+ <Route path={ROUTES.PROFILE} element={<Suspense fallback={<PageLoader />}>
+ <ProfilePage />
+ </Suspense>} />
+ <Route path={ROUTES.CHANGE_PASSWORD} element={<Suspense fallback={<PageLoader />}>
+ <ChangePasswordPage />
+ </Suspense>} />
+ <Route path={ROUTES.VERIFY_ACCOUNT} element={<Suspense fallback={<PageLoader />}>
+ <AccountVerificationPage />
+ </Suspense>} />
+ <Route path={ROUTES.MY_LISTINGS} element={<Suspense fallback={<PageLoader />}>
+ <MyListingsPage />
+ </Suspense>} />
+ <Route path={ROUTES.COMPLAINTS} element={<Suspense fallback={<PageLoader />}>
+ <ComplaintsPage />
+ </Suspense>} />
+ <Route path={ROUTES.FAVORITES} element={<Suspense fallback={<PageLoader />}>
+ <FavoritesPage />
+ </Suspense>} />
+ <Route path={ROUTES.CREATE_LISTING} element={<Suspense fallback={<PageLoader />}>
+ <CreateListingPage />
+ </Suspense>} />
+ <Route path="/listings/create/:listingType/subtype" element={<Navigate to={ROUTES.CREATE_LISTING} replace />} />
+ <Route path={ROUTES.PAY_LISTING_FEE} element={<Suspense fallback={<PageLoader />}>
+ <PayListingFeePage />
+ </Suspense>} />
+ <Route path={ROUTES.PAYMENT_METHODS} element={<Suspense fallback={<PageLoader />}>
+ <PaymentMethodsPage />
+ </Suspense>} />
+ <Route path={ROUTES.PAYMENTS} element={<Suspense fallback={<PageLoader />}>
+ <PaymentsPage />
+ </Suspense>} />
+ <Route path={ROUTES.INBOX} element={<Suspense fallback={<PageLoader />}>
+ <InboxPage />
+ </Suspense>} />
+ <Route path={ROUTES.EMAILS} element={<Navigate to={`${ROUTES.INBOX}?tab=emails`} replace />} />
+ <Route path={ROUTES.NOTIFICATIONS} element={<Navigate to={`${ROUTES.INBOX}?tab=notifications`} replace />} />
+ <Route path={ROUTES.CHAT} element={<LegacyChatInboxRedirect />} />
+ <Route path={ROUTES.AURA_CHAT} element={<Suspense fallback={<PageLoader />}>
+ <AuraChatPage />
+ </Suspense>} />
+ <Route path={ROUTES.USER_PROFILE(':userId')} element={<Suspense fallback={<PageLoader />}>
+ <UserProfilePage />
+ </Suspense>} />
+ <Route path={ROUTES.USER_REVIEWS(':userId')} element={<Suspense fallback={<PageLoader />}>
+ <UserReviewsPage />
+ </Suspense>} />
+ <Route path={ROUTES.REVIEWS_RECEIVED(':userId')} element={<Suspense fallback={<PageLoader />}>
+ <UserReviewsPage />
+ </Suspense>} />
+ <Route path={ROUTES.REVIEWS_GIVEN(':userId')} element={<Suspense fallback={<PageLoader />}>
+ <UserReviewsPage />
+ </Suspense>} />
+ <Route path={ROUTES.EDIT_LISTING(':id')} element={<Suspense fallback={<PageLoader />}>
+ <EditListingPage />
+ </Suspense>} />
+ <Route path={ROUTES.AGREEMENTS} element={<Suspense fallback={<PageLoader />}>
+ <AgreementsPage />
+ </Suspense>} />
+ <Route path={ROUTES.AGREEMENTS_ALL} element={<Suspense fallback={<PageLoader />}>
+ <AgreementsPage />
+ </Suspense>} />
+ <Route path={ROUTES.MY_ORDERS} element={<Suspense fallback={<PageLoader />}>
+ <MyOrdersPage />
+ </Suspense>} />
+ <Route path={`${ROUTES.MY_ORDERS}/:orderId/shipment`} element={<Suspense fallback={<PageLoader />}>
+ <OrderShipmentPage />
+ </Suspense>} />
+ <Route path={ROUTES.I_SOLD} element={<Suspense fallback={<PageLoader />}>
+ <ISoldPage />
+ </Suspense>} />
+ <Route path={`${ROUTES.I_SOLD}/:orderId/shipment`} element={<Suspense fallback={<PageLoader />}>
+ <OrderShipmentPage />
+ </Suspense>} />
+ <Route path={ROUTES.SECURITY} element={<Suspense fallback={<PageLoader />}>
+ <SecurityPage />
+ </Suspense>} />
+ <Route path={ROUTES.SHOPPING_CART} element={<Suspense fallback={<PageLoader />}>
+ <ShoppingCartPage />
+ </Suspense>} />
+ <Route path={ROUTES.CHECKOUT} element={<Suspense fallback={<PageLoader />}>
+ <CheckoutPage />
+ </Suspense>} />
+ <Route path={ROUTES.ORDER_SUCCESS} element={<Suspense fallback={<PageLoader />}>
+ <OrderSuccessPage />
+ </Suspense>} />
+ <Route path={ROUTES.PLATFORM_COUPONS} element={<Suspense fallback={<PageLoader />}>
+ <PlatformCouponsPage />
+ </Suspense>} />
+ <Route path={ROUTES.SELLER_CAMPAIGNS} element={<Suspense fallback={<PageLoader />}>
+ <SellerCampaignsPage />
+ </Suspense>} />
+ <Route path={ROUTES.MY_COUPONS} element={<Navigate to={ROUTES.SELLER_CAMPAIGNS} replace />} />
+ <Route path={ROUTES.ADMIN_COUPONS} element={<AdminRoute>
+ <Suspense fallback={<PageLoader />}>
+ <AdminCouponsPage />
+ </Suspense>
+ </AdminRoute>} />
+ <Route path={ROUTES.OFFERS} element={<Suspense fallback={<PageLoader />}>
+ <OffersPage />
+ </Suspense>} />
+ </Route>
+
+
+
+ {/* Fallback */}
+ <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+ </Routes>
+ </Suspense>;
+};
+export default AppRoutes;

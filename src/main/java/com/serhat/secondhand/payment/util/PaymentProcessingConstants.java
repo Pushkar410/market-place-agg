@@ -1,0 +1,18 @@
+package com.serhat.secondhand.payment.util;
+
+public final class PaymentProcessingConstants {
+
+    private PaymentProcessingConstants() {
+    }
+
+    public static final int MAX_OPTIMISTIC_LOCK_RETRIES = 3;
+    public static final long BASE_RETRY_BACKOFF_MS = 50L;
+    public static final int IDEMPOTENCY_LOCK_TTL_HOURS = 1;
+    public static final int IDEMPOTENCY_RESULT_TTL_HOURS = 24;
+
+    public static final String DEFAULT_CURRENCY = "TRY";
+
+    public static final String SYSTEM_RECEIVER_NAME = "System";
+    public static final String ESCROW_RECEIVER_SURNAME = "Escrow";
+    public static final String PAYMENT_RECEIVER_SURNAME = "Payment";
+}

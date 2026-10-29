@@ -1,0 +1,36 @@
+package com.serhat.secondhand.listing.api;
+
+import com.serhat.secondhand.core.result.Result;
+import com.serhat.secondhand.core.result.ResultResponses;
+import com.serhat.secondhand.core.security.PublicEndpoint;
+import com.serhat.secondhand.listing.application.common.LocationCatalogService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/catalog/locations")
+@RequiredArgsConstructor
+@CrossOrigin(origins = "*", allowedHeaders = "*")
+@PublicEndpoint
+public class LocationCatalogController {
+
+    private final LocationCatalogService locationCatalogService;
+
+    @GetMapping("/cities")
+    public ResponseEntity<?> getCities() {
+        return ResultResponses.ok(Result.success(locationCatalogService.getCities()));
+    }
+
+    @GetMapping("/districts")
+    public ResponseEntity<?> getDistricts(
+            @RequestParam String cityKey) {
+        return ResultResponses.ok(Result.success(locationCatalogService.getDistricts(cityKey)));
+    }
+
+    @GetMapping("/neighborhoods")
+    public ResponseEntity<?> getNeighborhoods(
+            @RequestParam String districtKey) {
+        return ResultResponses.ok(Result.success(locationCatalogService.getNeighborhoods(districtKey)));
+    }
+}

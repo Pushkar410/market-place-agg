@@ -1,0 +1,206 @@
+package com.serhat.secondhand.user.domain.entity;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.serhat.secondhand.agreements.entity.UserAgreement;
+import com.serhat.secondhand.auth.domain.entity.Token;
+import com.serhat.secondhand.core.verification.Verification;
+import com.serhat.secondhand.email.domain.entity.Email;
+import com.serhat.secondhand.listing.domain.entity.Listing;
+import com.serhat.secondhand.notification.entity.Notification;
+import com.serhat.secondhand.payment.entity.Payment;
+import com.serhat.secondhand.user.domain.entity.enums.*;
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+@Entity
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@org.hibernate.annotations.BatchSize(size = 20)
+@Table(name = "users", indexes = {
+        @Index(name = "idx_user_email", columnList = "email"),
+        @Index(name = "idx_user_phone", columnList = "phone"),
+        @Index(name = "idx_user_status", columnList = "acc_status")
+})
+public class User implements UserDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
+    private Long id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Enumerated(EnumType.STRING)
+    private Provider provider;
+
+    @Column(name = "surname", nullable = false)
+    private String surname;
+
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    @Column(name = "phone", nullable = false, unique = true)
+    private String phoneNumber;
+
+    @Column(name = "password")
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender", nullable = false)
+    private Gender gender;
+
+    @JsonFormat(pattern = "dd/MM/yyyy")
+    @Column(name = "birthdate")
+    private LocalDate birthdate;
+
+    @CreatedDate
+    @Column(name = "acc_creation_date")
+    private LocalDate accountCreationDate;
+
+    @Column(name = "last_login_date")
+    private LocalDateTime lastLoginDate;
+
+    private String lastLoginIp;
+
+    @Column(nullable = false)
+    private boolean accountVerified;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "acc_status", nullable = false)
+    private AccountStatus accountStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", length = 16)
+    @org.hibernate.annotations.ColumnDefault("'USER'")
+    @Builder.Default
+    private UserRole role = UserRole.USER;
+
+    @OneToMany(mappedBy = "seller", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @org.hibernate.annotations.BatchSize(size = 20)
+    private List<Listing> listings = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<UserAgreement> userAgreements = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Email> emails = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Token> tokens = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Verification> verifications = new ArrayList<>();
+
+    @OneToMany(mappedBy = "fromUser", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Payment> fromPayments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "toUser", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Payment> toPayments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Address> addresses = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Notification> notifications = new ArrayList<>();
+
+    /**
+     * Great Seller uygunluk geçişi; null = migrasyon/ilk değerlendirme (bildirim
+     * gönderilmez).
+     */
+    @Column(name = "great_seller_eligible_snapshot")
+    private Boolean greatSellerEligibleSnapshot;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private MembershipPlan plan = MembershipPlan.FREE;
+
+    @Column(name = "plan_expiry")
+    private LocalDateTime expirationDate;
+
+    @Column(name = "purchase_date")
+    private LocalDateTime purchaseDate;
+
+    @Column(name = "price")
+    private java.math.BigDecimal price;
+
+    @Column(name = "ai_listing_quota", nullable = false)
+    @Builder.Default
+    private Integer aiListingQuota = 1;
+
+    @Column(name = "daily_aura_usage", nullable = false)
+    @Builder.Default
+    private Integer dailyAuraUsage = 0;
+
+    @Column(name = "daily_aura_reset_date")
+    private LocalDate dailyAuraResetDate;
+
+    @Column(name = "auto_renew", nullable = false)
+    @Builder.Default
+    private boolean autoRenew = true;
+
+    public boolean isPremium() {
+        return plan == MembershipPlan.PREMIUM && expirationDate != null && !LocalDateTime.now().isAfter(expirationDate);
+    }
+
+    public MembershipPlan getEffectivePlan() {
+        return isPremium() ? MembershipPlan.PREMIUM : MembershipPlan.FREE;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        UserRole effectiveRole = role != null ? role : UserRole.USER;
+        List<SimpleGrantedAuthority> auth = new ArrayList<>();
+        auth.add(new SimpleGrantedAuthority(effectiveRole.authority()));
+        return auth;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
+    }
+}

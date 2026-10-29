@@ -1,0 +1,173 @@
+package com.serhat.secondhand.checkout.application;
+
+import com.serhat.secondhand.cart.entity.Cart;
+import com.serhat.secondhand.cart.repository.CartRepository;
+import com.serhat.secondhand.core.result.Result;
+import com.serhat.secondhand.coupon.application.CouponService;
+import com.serhat.secondhand.escrow.application.EscrowService;
+import com.serhat.secondhand.offer.application.IOfferService;
+import com.serhat.secondhand.offer.entity.Offer;
+import com.serhat.secondhand.order.application.OrderCreationService;
+import com.serhat.secondhand.order.application.event.OrderCreatedEvent;
+import com.serhat.secondhand.order.dto.CheckoutRequest;
+import com.serhat.secondhand.order.dto.OrderDto;
+import com.serhat.secondhand.order.entity.Order;
+import com.serhat.secondhand.order.entity.enums.DeliveryMethod;
+import com.serhat.secondhand.order.entity.enums.OrderStatus;
+import com.serhat.secondhand.order.mapper.OrderMapper;
+import com.serhat.secondhand.order.repository.OrderRepository;
+import com.serhat.secondhand.payment.application.OrderPaymentService;
+import com.serhat.secondhand.payment.dto.PaymentDto;
+import com.serhat.secondhand.payment.entity.PaymentStatus;
+import com.serhat.secondhand.pricing.dto.PricingResultDto;
+import com.serhat.secondhand.shipping.entity.enums.ShippingStatus;
+import com.serhat.secondhand.user.domain.entity.User;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class CheckoutOrchestrator {
+
+    private final CartRepository cartRepository;
+    private final OrderCreationService orderCreationService;
+    private final OrderPaymentService orderPaymentService;
+    private final OrderRepository orderRepository;
+    private final OrderMapper orderMapper;
+    private final CouponService couponService;
+    private final IOfferService offerService;
+    private final EscrowService escrowService;
+    private final CheckoutPricingContextFactory checkoutPricingContextFactory;
+    private final CheckoutStockReservationService checkoutStockReservationService;
+    private final ApplicationEventPublisher eventPublisher;
+
+    @Transactional
+    public Result<OrderDto> executeCheckout(Long userId, CheckoutRequest request) {
+        log.info("Executing checkout for userId: {}", userId);
+
+        Result<CheckoutPricingContextFactory.CheckoutPricingContext> pricingContextResult =
+                checkoutPricingContextFactory.build(userId, request);
+        if (pricingContextResult.isError()) {
+            return Result.error(pricingContextResult.getMessage(), pricingContextResult.getErrorCode());
+        }
+
+        CheckoutPricingContextFactory.CheckoutPricingContext pricingContext = pricingContextResult.getData();
+        User user = pricingContext.user();
+        List<Cart> effectiveCartItems = pricingContext.effectiveCartItems();
+        Offer acceptedOffer = pricingContext.acceptedOffer();
+        PricingResultDto pricing = pricingContext.pricing();
+
+        Result<Map<UUID, Integer>> reservedResult = checkoutStockReservationService.reserveStock(userId, effectiveCartItems);
+        if (reservedResult.isError()) {
+            return Result.error(reservedResult.getErrorCode(), reservedResult.getMessage());
+        }
+
+        Map<UUID, Integer> reserved = reservedResult.getData();
+
+        Result<Order> orderResult = orderCreationService.createOrder(user, effectiveCartItems, request, pricing);
+        if (orderResult.isError()) {
+            checkoutStockReservationService.releaseReservedStock(userId, reserved);
+            return Result.error(orderResult.getErrorCode(), orderResult.getMessage());
+        }
+
+        Order order = orderResult.getData();
+
+        try {
+            Result<List<PaymentDto>> paymentResult = orderPaymentService.processPaymentsForOrder(
+                    user, order, request, order.getOrderNumber(), pricing, order.getExternalId());
+
+            if (paymentResult.isError()) {
+                cleanupFailedOrder(order);
+                checkoutStockReservationService.releaseReservedStock(userId, reserved);
+                return Result.error(paymentResult.getErrorCode(), paymentResult.getMessage());
+            }
+
+            List<PaymentDto> paymentResults = paymentResult.getData();
+            boolean allSuccessful = paymentResults.stream().allMatch(PaymentDto::isSuccess);
+
+            if (allSuccessful) {
+                applyPaymentResultToOrder(order, paymentResults, true, request.getProviderName());
+                Result<Void> escrowResult = escrowService.hold(order);
+                if (escrowResult.isError()) {
+                    throw new IllegalStateException("Escrow creation failed for order "
+                            + order.getOrderNumber() + ": " + escrowResult.getMessage());
+                }
+                
+                Result<Void> successResult = handleSuccessfulCheckout(userId, order, pricing, acceptedOffer);
+                if (successResult.isError()) {
+                    throw new IllegalStateException("Checkout finalization failed for order "
+                            + order.getOrderNumber() + ": " + successResult.getMessage());
+                }
+                checkoutStockReservationService.consumeReservationsOnSuccess(userId, reserved);
+                eventPublisher.publishEvent(new OrderCreatedEvent(order, user, true));
+                log.info("Checkout completed successfully for order: {}", order.getOrderNumber());
+            } else {
+                cleanupFailedOrder(order);
+                checkoutStockReservationService.releaseReservedStock(userId, reserved);
+                log.warn("Checkout payment failed for order: {}", order.getOrderNumber());
+                return Result.error("PAYMENT_FAILED", "Error occurred during checkout payment. Please try again later.");
+            }
+
+            return Result.success(orderMapper.toDto(order));
+
+        } catch (Exception e) {
+            cleanupFailedOrder(order);
+            checkoutStockReservationService.releaseReservedStock(userId, reserved);
+            log.error("Critical exception during checkout for order: {}", order.getOrderNumber(), e);
+            throw e;
+        }
+    }
+
+    private void applyPaymentResultToOrder(Order order, List<PaymentDto> paymentResults,
+                                           boolean allSuccessful, String providerName) {
+        if (paymentResults != null && !paymentResults.isEmpty()) {
+            order.setPaymentReference(paymentResults.get(0).paymentId().toString());
+        }
+        order.setPaymentStatus(allSuccessful ? PaymentStatus.COMPLETED : PaymentStatus.FAILED);
+        if (allSuccessful) {
+            order.setStatus(order.getDeliveryMethod() == DeliveryMethod.SAFE_MEETUP ? OrderStatus.MEETUP_PENDING : OrderStatus.CONFIRMED);
+        } else {
+            order.setStatus(OrderStatus.CANCELLED);
+        }
+        order.setPaymentProviderName(providerName != null ? providerName : "EWALLET");
+        if (allSuccessful && order.getShipping() != null) {
+            order.getShipping().setStatus(ShippingStatus.PENDING);
+        }
+        orderRepository.save(order);
+        log.info("Updated order {} payment status to: {} with payment method: {}",
+                order.getOrderNumber(), order.getPaymentStatus(), order.getPaymentProviderName());
+    }
+
+    private void cleanupFailedOrder(Order order) {
+        if (order != null && order.getId() != null) {
+            try {
+                orderRepository.delete(order);
+                log.info("Cleaned up uncompleted order {} after payment failure/cancellation", order.getOrderNumber());
+            } catch (Exception e) {
+                log.warn("Failed to delete uncompleted order {}: {}", order.getOrderNumber(), e.getMessage());
+            }
+        }
+    }
+
+    private Result<Void> handleSuccessfulCheckout(Long userId, Order order, PricingResultDto pricing, Offer acceptedOffer) {
+        if (pricing.getCouponCode() != null) {
+            Result<Void> redeemResult = couponService.redeem(pricing.getCouponCode(), userId, order);
+            if (redeemResult.isError()) {
+                return redeemResult;
+            }
+        }
+        if (acceptedOffer != null) {
+            offerService.markCompleted(acceptedOffer);
+        }
+        cartRepository.deleteByUserId(userId);
+        return Result.success();
+    }
+}

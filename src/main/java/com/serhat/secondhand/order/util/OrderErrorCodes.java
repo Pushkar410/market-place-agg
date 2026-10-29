@@ -1,0 +1,46 @@
+package com.serhat.secondhand.order.util;
+
+import com.serhat.secondhand.core.exception.ErrorCode;
+import lombok.Getter;
+import org.springframework.http.HttpStatus;
+
+@Getter
+public enum OrderErrorCodes implements ErrorCode {
+    CART_EMPTY("CART_EMPTY", "Cart is empty", HttpStatus.BAD_REQUEST),
+    ADDRESS_NOT_BELONG_TO_USER("ADDRESS_NOT_BELONG_TO_USER", "Address does not belong to user", HttpStatus.FORBIDDEN),
+    BILLING_ADDRESS_NOT_BELONG_TO_USER("BILLING_ADDRESS_NOT_BELONG_TO_USER", "Billing address does not belong to user", HttpStatus.FORBIDDEN),
+    ORDER_NOT_FOUND("ORDER_NOT_FOUND", "Order not found", HttpStatus.NOT_FOUND),
+    ORDER_ITEM_NOT_FOUND("ORDER_ITEM_NOT_FOUND", "Order item not found", HttpStatus.NOT_FOUND),
+    ADDRESS_NOT_FOUND("ADDRESS_NOT_FOUND", "Address not found", HttpStatus.NOT_FOUND),
+    ORDER_NOT_BELONG_TO_USER("ORDER_NOT_BELONG_TO_USER", "Order does not belong to user", HttpStatus.FORBIDDEN),
+    ORDER_CANNOT_BE_CANCELLED("ORDER_CANNOT_BE_CANCELLED", "Order cannot be cancelled", HttpStatus.BAD_REQUEST),
+    ORDER_CANNOT_BE_REFUNDED("ORDER_CANNOT_BE_REFUNDED", "Order cannot be refunded", HttpStatus.BAD_REQUEST),
+    ORDER_CANNOT_BE_COMPLETED("ORDER_CANNOT_BE_COMPLETED", "Order cannot be completed", HttpStatus.BAD_REQUEST),
+    ORDER_ALREADY_COMPLETED("ORDER_ALREADY_COMPLETED", "Order is already completed", HttpStatus.BAD_REQUEST),
+    ORDER_ITEM_ALREADY_CANCELLED("ORDER_ITEM_ALREADY_CANCELLED", "Order item is already cancelled", HttpStatus.BAD_REQUEST),
+    ORDER_ITEM_ALREADY_REFUNDED("ORDER_ITEM_ALREADY_REFUNDED", "Order item is already refunded", HttpStatus.BAD_REQUEST),
+    REFUND_TIME_EXPIRED("REFUND_TIME_EXPIRED", "Refund time has expired (48 hours passed)", HttpStatus.BAD_REQUEST),
+    INVALID_ORDER_NAME("INVALID_ORDER_NAME", "Order name must be 100 characters or less", HttpStatus.BAD_REQUEST),
+    ORDER_NOT_MODIFIABLE("ORDER_NOT_MODIFIABLE", "Order can only be modified in pending or confirmed status", HttpStatus.BAD_REQUEST),
+    INVALID_ORDER_NOTES("INVALID_ORDER_NOTES", "Order notes must be 1000 characters or less", HttpStatus.BAD_REQUEST),
+    REFUND_FAILED("REFUND_FAILED", "Failed to process refund. Please contact support.", HttpStatus.BAD_REQUEST),
+    ORDER_COMPLETION_ESCROW_RELEASE_FAILED("ORDER_COMPLETION_ESCROW_RELEASE_FAILED", "Order completion failed during escrow release", HttpStatus.BAD_REQUEST),
+    ORDER_ITEM_MISSING_SELLER("ORDER_ITEM_MISSING_SELLER", "Order item cannot be created: listing has no seller", HttpStatus.UNPROCESSABLE_ENTITY),
+    ORDER_ITEM_NOT_BELONG_TO_ORDER("ORDER_ITEM_NOT_BELONG_TO_ORDER", "Order item does not belong to this order", HttpStatus.FORBIDDEN),
+    ORDER_HAS_MULTIPLE_SELLERS("ORDER_HAS_MULTIPLE_SELLERS", "This order contains items from multiple sellers and cannot be shipped as a single seller shipment", HttpStatus.BAD_REQUEST),
+    ORDER_NOT_SHIPPABLE("ORDER_NOT_SHIPPABLE", "Order cannot be shipped", HttpStatus.BAD_REQUEST),
+    MEETUP_VERIFICATION_FAILED("MEETUP_VERIFICATION_FAILED", "Meetup verification code is incorrect", HttpStatus.BAD_REQUEST),
+    VERIFICATION_LOCKED("VERIFICATION_LOCKED", "Too many failed attempts. Verification is locked temporarily.", HttpStatus.FORBIDDEN),
+    MEETUP_CODE_EXPIRED("MEETUP_CODE_EXPIRED", "Meetup verification code has expired", HttpStatus.BAD_REQUEST),
+    NOT_AUTHORIZED_FOR_ORDER("NOT_AUTHORIZED_FOR_ORDER", "You are not authorized to perform this action on this order", HttpStatus.FORBIDDEN);
+
+    private final String code;
+    private final String message;
+    private final HttpStatus httpStatus;
+
+    OrderErrorCodes(String code, String message, HttpStatus httpStatus) {
+        this.code = code;
+        this.message = message;
+        this.httpStatus = httpStatus;
+    }
+}

@@ -1,0 +1,71 @@
+# Local development profile (default). Production uses SPRING_PROFILES_ACTIVE=prod.
+#
+# Everything below has a working default so that after `docker compose up -d` the backend starts with
+#   ./mvnw spring-boot:run
+# and no environment variables. Every value can still be overridden with the env var named in ${...}.
+# None of these defaults apply in the prod profile (see ProdSecurityGuard + application-prod.yml).
+spring:
+  datasource:
+    # docker-compose.yml publishes Postgres on host port 5433
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/secondhand}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      # Builds the schema from the JPA entities on first start - the shipped Flyway baseline does not
+      # cover every entity column, so Flyway is only used for production migrations.
+      ddl-auto: update
+    open-in-view: false
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            # Placeholders: Google sign-in is NOT needed for the aggregator. Set real values to enable it.
+            client-id: ${GOOGLE_CLIENT_ID:not-configured}
+            client-secret: ${GOOGLE_CLIENT_SECRET:not-configured}
+            scope: ${GOOGLE_SCOPE:email,profile}
+            redirect-uri: ${REDIRECT_URI:http://localhost:8080/login/oauth2/code/google}
+
+# Development-only signing key (>= 32 chars). Never use this value outside local development.
+jwt:
+  secretKey: ${JWT_SECRET_KEY:local-dev-only-jwt-secret-key-change-me-0123456789}
+
+# Gemini API Key - used by all Gemini-backed agents
+# Set GEMINI_API_KEY env var or place your key here for local dev.
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:AIzaSyAb8RN6Ic5yBrldwu7n_uZTtlShN3N7fYrh8cc2k6CmXI6GVS6g}
+    model: ${GEMINI_API_MODEL:gemini-2.0-flash-lite}
+    base-url: ${GEMINI_API_BASE_URL:https://generativelanguage.googleapis.com}
+
+aggregator:
+  demo-seed:
+    enabled: ${AGGREGATOR_DEMO_SEED:true}
+  # Source timeout for parallel searches (milliseconds)
+  source-timeout-ms: 5000
+  # Enable/disable simulated community sources (WhatsApp, Facebook Marketplace, Local Niche)
+  # OLX is always excluded by design regardless of this setting
+  simulated-sources:
+    enabled: true
+  # Enable live DummyJSON product catalog integration
+  live-products:
+    enabled: true
+  # Enable LLM-based query understanding in the classic aggregator
+  llm:
+    enabled: true
+
+# Multi-agent system configuration
+multi-agent:
+  # Maximum time to wait for any single agent (seconds)
+  agent-timeout-seconds: 8
+  # Whether to use Gemini for buy advisory narratives (requires GEMINI_API_KEY)
+  gemini-advisory-enabled: true
+
+logging:
+  level:
+    com.serhat.secondhand.aggregator: INFO
+    com.serhat.secondhand.aggregator.multiagent: DEBUG
+

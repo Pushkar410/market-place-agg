@@ -1,0 +1,55 @@
+package com.serhat.secondhand.favorite.domain.entity;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.serhat.secondhand.listing.domain.entity.Listing;
+import com.serhat.secondhand.user.domain.entity.User;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "favorites", 
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"user_id", "listing_id"})
+    },
+    indexes = {
+        @Index(name = "idx_favorite_user", columnList = "user_id"),
+        @Index(name = "idx_favorite_listing", columnList = "listing_id"),
+        @Index(name = "idx_favorite_created", columnList = "created_at")
+    }
+)
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EntityListeners(AuditingEntityListener.class)
+public class Favorite {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "listing_id", nullable = false)
+    private Listing listing;
+    
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    @JsonFormat(pattern = "dd/MM/yyyy")
+    private LocalDateTime createdAt;
+    
+        public Favorite(User user, Listing listing) {
+        this.user = user;
+        this.listing = listing;
+    }
+}

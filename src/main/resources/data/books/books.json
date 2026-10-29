@@ -1,0 +1,48 @@
+﻿{
+  "types": [
+    {"key": "FICTION", "label": "Fiction"},
+    {"key": "NON_FICTION", "label": "Non-Fiction"},
+    {"key": "TEXTBOOK", "label": "Textbook"},
+    {"key": "COMIC", "label": "Comic / Manga"},
+    {"key": "CHILDREN", "label": "Children"},
+    {"key": "REFERENCE", "label": "Reference"},
+    {"key": "SELF_HELP", "label": "Self Help"},
+    {"key": "BIOGRAPHY", "label": "Biography"}
+  ],
+  "genres": {
+    "FICTION": ["Science Fiction", "Fantasy", "Mystery", "Thriller", "Romance", "Historical Fiction", "Horror", "Literary Fiction", "Adventure"],
+    "NON_FICTION": ["History", "Science", "Politics", "Economics", "Philosophy", "Psychology", "Travel", "True Crime", "Business"],
+    "TEXTBOOK": ["Engineering", "Medicine", "Law", "Mathematics", "Physics", "Chemistry", "Computer Science", "Commerce", "Arts"],
+    "COMIC": ["Superhero", "Manga", "Graphic Novel", "Humor", "Action"],
+    "CHILDREN": ["Picture Books", "Early Readers", "Middle Grade", "Young Adult", "Educational"],
+    "SELF_HELP": ["Productivity", "Mindfulness", "Finance", "Relationships", "Health"],
+    "BIOGRAPHY": ["Autobiography", "Memoir", "Political", "Sports", "Celebrity"],
+    "REFERENCE": ["Dictionary", "Encyclopedia", "Atlas", "Almanac"]
+  },
+  "languages": [
+    {"key": "ENGLISH", "label": "English"},
+    {"key": "HINDI", "label": "Hindi"},
+    {"key": "KANNADA", "label": "Kannada"},
+    {"key": "TAMIL", "label": "Tamil"},
+    {"key": "TELUGU", "label": "Telugu"},
+    {"key": "MARATHI", "label": "Marathi"},
+    {"key": "BENGALI", "label": "Bengali"},
+    {"key": "GUJARATI", "label": "Gujarati"},
+    {"key": "MALAYALAM", "label": "Malayalam"},
+    {"key": "PUNJABI", "label": "Punjabi"},
+    {"key": "OTHER", "label": "Other"}
+  ],
+  "formats": [
+    {"key": "HARDCOVER", "label": "Hardcover"},
+    {"key": "PAPERBACK", "label": "Paperback"},
+    {"key": "EBOOK", "label": "E-Book"},
+    {"key": "AUDIOBOOK", "label": "Audiobook"},
+    {"key": "SPIRAL", "label": "Spiral Bound"}
+  ],
+  "conditions": [
+    {"key": "LIKE_NEW", "label": "Like New"},
+    {"key": "GOOD", "label": "Good"},
+    {"key": "ACCEPTABLE", "label": "Acceptable"},
+    {"key": "POOR", "label": "Poor"}
+  ]
+}

@@ -1,0 +1,75 @@
+package com.serhat.secondhand.listing.api;
+
+import com.serhat.secondhand.core.result.Result;
+import com.serhat.secondhand.core.result.ResultResponses;
+
+import com.serhat.secondhand.core.security.PublicEndpoint;
+import com.serhat.secondhand.core.result.ResultResponses;
+import com.serhat.secondhand.listing.api.support.CategoryListingControllerSupport;
+import com.serhat.secondhand.listing.domain.dto.request.sports.SportsCreateRequest;
+import com.serhat.secondhand.listing.domain.dto.request.sports.SportsUpdateRequest;
+import com.serhat.secondhand.listing.domain.dto.response.listing.ListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.listing.SportsListingFilterDto;
+import com.serhat.secondhand.listing.domain.dto.response.sports.SportsListingDto;
+import com.serhat.secondhand.listing.application.sports.SportsListingService;
+import com.serhat.secondhand.user.domain.entity.User;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/sports")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Sports Listings", description = "Sports listing CRUD operations and search")
+public class SportsListingController {
+
+    private final SportsListingService sportsListingService;
+
+    @PostMapping("/create-listing")
+    @Operation(summary = "Create a new sports listing")
+    public ResponseEntity<?> createSportsListing(
+            @Valid @RequestBody SportsCreateRequest request,
+            @AuthenticationPrincipal User currentUser) {
+
+        log.info("Request to create sports listing by user: {}", currentUser.getId());
+        var result = sportsListingService.createSportsListing(request, currentUser.getId());
+        return CategoryListingControllerSupport.buildCreateResponse(result, "/api/v1/sports");
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update a sports listing")
+    public ResponseEntity<?> updateSportsListing(
+            @PathVariable UUID id,
+            @Valid @RequestBody SportsUpdateRequest request,
+            @AuthenticationPrincipal User currentUser) {
+
+        log.info("Request to update sports listing: {} by user: {}", id, currentUser.getId());
+
+        return ResultResponses.ok(sportsListingService.updateSportsListing(id, request, currentUser.getId()));
+    }
+
+    @PublicEndpoint
+    @GetMapping("/{id}")
+    @Operation(summary = "Get sports listing details")
+    public ResponseEntity<?> getSportsDetails(@PathVariable UUID id) {
+        SportsListingDto dto = sportsListingService.getSportsDetails(id);
+        return ResultResponses.ok(Result.success(dto));
+    }
+
+    @PublicEndpoint
+    @PostMapping("/filter")
+    @Operation(summary = "Filter sports listings")
+    public ResponseEntity<?> filterSports(@RequestBody SportsListingFilterDto filters) {
+        Page<ListingDto> page = sportsListingService.filterSports(filters);
+        return ResultResponses.ok(Result.success(page));
+    }
+}

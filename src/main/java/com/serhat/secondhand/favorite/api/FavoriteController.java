@@ -1,0 +1,153 @@
+package com.serhat.secondhand.favorite.api;
+
+import com.serhat.secondhand.core.result.ResultResponses;
+import com.serhat.secondhand.favorite.application.FavoriteService;
+import com.serhat.secondhand.favorite.config.FavoriteApiConfig;
+import com.serhat.secondhand.favorite.domain.dto.FavoriteRequest;
+import com.serhat.secondhand.user.domain.entity.User;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/favorites")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Favorites", description = "Favorite listings management")
+@Validated
+public class FavoriteController {
+    
+    private final FavoriteService favoriteService;
+    private final FavoriteApiConfig favoriteApiConfig;
+    
+    @PostMapping
+    @Operation(summary = "Add listing to favorites", description = "Add a listing to the current user's favorites")
+    @ApiResponse(responseCode = "200", description = "Listing added to favorites successfully")
+    @ApiResponse(responseCode = "400", description = "Listing already in favorites or invalid request")
+    @ApiResponse(responseCode = "404", description = "Listing not found")
+    public ResponseEntity<?> addToFavorites(
+            @Valid @RequestBody FavoriteRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        return ResultResponses.ok(favoriteService.addToFavorites(currentUser.getId(), request.getListingId()));
+    }
+    
+    @DeleteMapping("/{listing-id}")
+    @Operation(summary = "Remove listing from favorites", description = "Remove a listing from the current user's favorites")
+    @ApiResponse(responseCode = "204", description = "Listing removed from favorites successfully")
+    @ApiResponse(responseCode = "400", description = "Listing not in favorites")
+    public ResponseEntity<?> removeFromFavorites(
+            @PathVariable("listing-id") UUID listingId,
+            @AuthenticationPrincipal User currentUser) {
+        return ResultResponses.noContent(favoriteService.removeFromFavorites(currentUser.getId(), listingId));
+    }
+    
+    @PostMapping("/toggle")
+    @Operation(summary = "Toggle favorite status", description = "Add to favorites if not exists, remove if exists")
+    @ApiResponse(responseCode = "200", description = "Favorite status toggled successfully")
+    public ResponseEntity<?> toggleFavorite(
+            @Valid @RequestBody FavoriteRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        return ResultResponses.ok(favoriteService.toggleFavorite(currentUser.getId(), request.getListingId()));
+    }
+    
+    @GetMapping
+    @Operation(summary = "Get user's favorites", description = "Get current user's favorite listings with pagination")
+    @ApiResponse(responseCode = "200", description = "Favorites retrieved successfully")
+    public ResponseEntity<?> getUserFavorites(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @AuthenticationPrincipal User currentUser) {
+        int resolvedPage = page == null || page < 0 ? 0 : page;
+        int resolvedSize = favoriteApiConfig.resolveUserFavoritesSize(size);
+        Pageable pageable = PageRequest.of(resolvedPage, resolvedSize);
+        return ResultResponses.ok(favoriteService.getUserFavorites(currentUser.getId(), pageable));
+    }
+    
+    @GetMapping("/stats/{listing-id}")
+    @Operation(summary = "Get favorite stats for listing", description = "Get favorite count and user's favorite status for a listing")
+    @ApiResponse(responseCode = "200", description = "Stats retrieved successfully")
+    public ResponseEntity<?> getFavoriteStats(
+            @PathVariable("listing-id") UUID listingId,
+            @AuthenticationPrincipal User currentUser) {
+        Long userId = currentUser != null ? currentUser.getId() : null;
+        return ResultResponses.ok(favoriteService.getFavoriteStats(listingId, userId));
+    }
+    
+    @PostMapping("/stats")
+    @Operation(summary = "Get favorite stats for multiple listings", description = "Get favorite statistics for multiple listings")
+    @ApiResponse(responseCode = "200", description = "Stats retrieved successfully")
+    public ResponseEntity<?> getFavoriteStatsForListings(
+            @RequestBody List<UUID> listingIds,
+            @AuthenticationPrincipal User currentUser) {
+        Long userId = currentUser != null ? currentUser.getId() : null;
+        return ResultResponses.ok(favoriteService.getFavoriteStatsForListings(listingIds, userId));
+    }
+    
+    @GetMapping("/check/{listing-id}")
+    @Operation(summary = "Check if listing is favorited", description = "Check if current user has favorited a specific listing")
+    @ApiResponse(responseCode = "200", description = "Check completed successfully")
+    public ResponseEntity<?> isFavorited(
+            @PathVariable("listing-id") UUID listingId,
+            @AuthenticationPrincipal User currentUser) {
+        return ResultResponses.ok(favoriteService.isFavorited(currentUser.getId(), listingId));
+    }
+    
+    @GetMapping("/count/{listing-id}")
+    @Operation(summary = "Get favorite count", description = "Get total number of users who favorited a listing")
+    @ApiResponse(responseCode = "200", description = "Count retrieved successfully")
+    public ResponseEntity<?> getFavoriteCount(@PathVariable("listing-id") UUID listingId) {
+        return ResultResponses.ok(favoriteService.getFavoriteCount(listingId));
+    }
+    
+    @GetMapping("/ids")
+    @Operation(summary = "Get user's favorite listing IDs", description = "Get list of listing IDs that user has favorited")
+    @ApiResponse(responseCode = "200", description = "IDs retrieved successfully")
+    public ResponseEntity<?> getUserFavoriteIds(@AuthenticationPrincipal User currentUser) {
+        return ResultResponses.ok(favoriteService.getUserFavoriteIds(currentUser.getId()));
+    }
+    
+    @GetMapping("/top")
+    @Operation(summary = "Get top favorited listings", description = "Get most favorited listings")
+    @ApiResponse(responseCode = "200", description = "Top favorites retrieved successfully")
+    public ResponseEntity<?> getTopFavoritedListings(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        int resolvedPage = page == null || page < 0 ? 0 : page;
+        int resolvedSize = favoriteApiConfig.resolveTopSize(size);
+        Pageable pageable = PageRequest.of(resolvedPage, resolvedSize);
+        return ResultResponses.ok(favoriteService.getTopFavoritedListings(pageable));
+    }
+
+    @GetMapping("/top-listings")
+    @Operation(summary = "Get top favorited listings with details", description = "Get most favorited listings with full listing details")
+    @ApiResponse(responseCode = "200", description = "Top favorites with details retrieved successfully")
+    public ResponseEntity<?> getTopFavoritedListingsWithDetails(
+            @RequestParam(required = false) Integer size,
+            @AuthenticationPrincipal User currentUser) {
+        int resolvedSize = favoriteApiConfig.resolveTopListingsSize(size);
+        Long userId = currentUser != null ? currentUser.getId() : null;
+        return ResultResponses.ok(favoriteService.getTopFavoritedListingsWithDetails(resolvedSize, userId));
+    }
+
+    @PostMapping("/listings/{listing-id}/broadcast-offer")
+    @Operation(summary = "Broadcast private offer to favoriters", description = "Seller sends a special discounted offer to all users who favorited this listing")
+    public ResponseEntity<?> broadcastOfferToFavoriters(
+            @PathVariable("listing-id") UUID listingId,
+            @Valid @RequestBody com.serhat.secondhand.favorite.domain.dto.FavoriterBroadcastRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        log.info("Seller {} broadcasting offer for listing {} with price {}", currentUser.getId(), listingId, request.getDiscountedPrice());
+        return ResultResponses.ok(favoriteService.broadcastOfferToFavoriters(currentUser.getId(), listingId, request));
+    }
+}

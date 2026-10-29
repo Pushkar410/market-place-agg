@@ -1,0 +1,153 @@
+package com.serhat.secondhand.listing.domain.repository.listing;
+
+import com.serhat.secondhand.listing.domain.entity.Listing;
+import com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus;
+import com.serhat.secondhand.listing.domain.entity.enums.base.ListingType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface ListingRepository extends JpaRepository<Listing, UUID> {
+
+    @Query(value = "SELECT id FROM listings WHERE id = :id FOR UPDATE", nativeQuery = true)
+    Optional<UUID> lockListingById(@Param("id") UUID id);
+
+    default Optional<Listing> findByIdWithLock(UUID id) {
+        return lockListingById(id).flatMap(this::findById);
+    }
+
+    @Query("SELECT l FROM Listing l JOIN FETCH l.seller WHERE l.id = :id")
+    Optional<Listing> findByIdWithSeller(@Param("id") UUID id);
+
+    @Query("SELECT l FROM Listing l JOIN FETCH l.seller WHERE LOWER(l.listingNo) = LOWER(:listingNo)")
+    Optional<Listing> findByListingNoWithSeller(@Param("listingNo") String listingNo);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query("SELECT l FROM Listing l WHERE l.status = :status")
+    Page<Listing> findByStatus(@Param("status") ListingStatus status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query(value = "SELECT l FROM Listing l WHERE l.seller.id = :sellerId AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED",
+           countQuery = "SELECT COUNT(l) FROM Listing l WHERE l.seller.id = :sellerId AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED")
+    Page<Listing> findBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query(value = "SELECT l FROM Listing l WHERE l.seller.id = :sellerId AND l.status = :status",
+           countQuery = "SELECT COUNT(l) FROM Listing l WHERE l.seller.id = :sellerId AND l.status = :status")
+    Page<Listing> findBySellerIdAndStatus(@Param("sellerId") Long sellerId,
+                                          @Param("status") ListingStatus status,
+                                          Pageable pageable);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query(value = "SELECT l FROM Listing l WHERE l.seller.id = :sellerId AND l.listingType = :listingType AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED",
+           countQuery = "SELECT COUNT(l) FROM Listing l WHERE l.seller.id = :sellerId AND l.listingType = :listingType AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED")
+    Page<Listing> findBySellerIdAndListingType(@Param("sellerId") Long sellerId, @Param("listingType") ListingType listingType, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query(value = "SELECT l FROM Listing l WHERE l.seller.id = :sellerId " +
+            "AND (:title IS NULL OR :title = '' OR LOWER(l.title) LIKE LOWER(CONCAT('%', :title, '%'))) " +
+            "AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED",
+           countQuery = "SELECT COUNT(l) FROM Listing l WHERE l.seller.id = :sellerId " +
+            "AND (:title IS NULL OR :title = '' OR LOWER(l.title) LIKE LOWER(CONCAT('%', :title, '%'))) " +
+            "AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED")
+    Page<Listing> findBySellerIdAndTitle(@Param("sellerId") Long sellerId,
+                                         @Param("title") String title,
+                                         Pageable pageable);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query(value = "SELECT l FROM Listing l WHERE l.seller.id = :sellerId AND l.listingType = :listingType " +
+            "AND (:title IS NULL OR :title = '' OR LOWER(l.title) LIKE LOWER(CONCAT('%', :title, '%'))) " +
+            "AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED",
+           countQuery = "SELECT COUNT(l) FROM Listing l WHERE l.seller.id = :sellerId AND l.listingType = :listingType " +
+            "AND (:title IS NULL OR :title = '' OR LOWER(l.title) LIKE LOWER(CONCAT('%', :title, '%'))) " +
+            "AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED")
+    Page<Listing> findBySellerIdAndListingTypeAndTitle(@Param("sellerId") Long sellerId,
+                                                       @Param("listingType") ListingType listingType,
+                                                       @Param("title") String title,
+                                                       Pageable pageable);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query(value = "SELECT l FROM Listing l WHERE l.seller.id = :sellerId " +
+            "AND (:status IS NULL AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED OR :status IS NOT NULL AND l.status = :status) " +
+            "AND (:listingType IS NULL OR l.listingType = :listingType) " +
+            "AND (:title IS NULL OR :title = '' OR LOWER(l.title) LIKE LOWER(CONCAT('%', :title, '%')))",
+           countQuery = "SELECT COUNT(l) FROM Listing l WHERE l.seller.id = :sellerId " +
+            "AND (:status IS NULL AND l.status <> com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus.DELETED OR :status IS NOT NULL AND l.status = :status) " +
+            "AND (:listingType IS NULL OR l.listingType = :listingType) " +
+            "AND (:title IS NULL OR :title = '' OR LOWER(l.title) LIKE LOWER(CONCAT('%', :title, '%')))")
+    Page<Listing> findBySellerIdAndFilters(@Param("sellerId") Long sellerId,
+                                           @Param("status") ListingStatus status,
+                                           @Param("listingType") ListingType listingType,
+                                           @Param("title") String title,
+                                           Pageable pageable);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query("SELECT l FROM Listing l " +
+            "WHERE (LOWER(l.title) LIKE LOWER(CONCAT('%', :title, '%')) " +
+            "OR LOWER(l.listingNo) LIKE LOWER(CONCAT('%', :listingNo, '%'))) " +
+            "AND l.status = :status")
+    Page<Listing> findBySearch(@Param("title") String title,
+                               @Param("listingNo") String listingNo,
+                               @Param("status") ListingStatus status,
+                               Pageable pageable);
+
+    @org.springframework.cache.annotation.Cacheable(value = "listingStats", key = "'totalCount'")
+    @Query("SELECT COUNT(l) FROM Listing l")
+    long getTotalListingCount();
+
+    @org.springframework.cache.annotation.Cacheable(value = "listingStats", key = "'countByStatus:' + #status")
+    @Query("SELECT COUNT(l) FROM Listing l WHERE l.status = :status")
+    long getListingCountByStatus(ListingStatus status);
+
+    @org.springframework.cache.annotation.Cacheable(value = "listingStats", key = "'activeSellerCount:' + #status")
+    @Query("SELECT COUNT(DISTINCT l.seller.id) FROM Listing l WHERE l.status = :status")
+    long getActiveSellerCount(ListingStatus status);
+
+    @org.springframework.cache.annotation.Cacheable(value = "listingStats", key = "'activeCityCount:' + #status")
+    @Query("SELECT COUNT(DISTINCT l.city) FROM Listing l WHERE l.status = :status AND l.city IS NOT NULL")
+    long getActiveCityCount(ListingStatus status);
+
+    @org.springframework.cache.annotation.Cacheable(value = "listingStats", key = "'countsByType:' + #status")
+    @Query("SELECT l.listingType, COUNT(l) FROM Listing l WHERE l.status = :status GROUP BY l.listingType")
+    List<Object[]> getActiveCountsByType(ListingStatus status);
+
+
+    @Modifying
+    @Query("UPDATE Listing l SET l.price = :price, l.updatedAt = CURRENT_TIMESTAMP WHERE l.id = :id AND l.seller.id = :sellerId")
+    int updatePrice(@Param("id") UUID id, @Param("price") BigDecimal price, @Param("sellerId") Long sellerId);
+
+    @Modifying
+    @Query("UPDATE Listing l SET l.price = :price, l.updatedAt = CURRENT_TIMESTAMP WHERE l.id IN :ids AND l.seller.id = :sellerId AND l.status IN :statuses")
+    int updatePriceBatch(@Param("ids") List<UUID> ids, @Param("price") BigDecimal price, @Param("sellerId") Long sellerId, @Param("statuses") Collection<ListingStatus> statuses);
+
+    @EntityGraph(attributePaths = {"seller"})
+    @Query("SELECT l FROM Listing l WHERE l.id IN :ids")
+    List<Listing> findAllByIdIn(@Param("ids") Collection<UUID> ids);
+
+    long countByIdIn(Collection<UUID> ids);
+
+    long countByIdInAndSellerId(Collection<UUID> ids, Long sellerId);
+
+    long countByIdInAndSellerIdAndStatusIn(Collection<UUID> ids, Long sellerId, Collection<ListingStatus> statuses);
+
+    boolean existsByIdInAndListingTypeIn(Collection<UUID> ids, Collection<ListingType> listingTypes);
+
+    long countBySellerIdAndStatus(Long sellerId, ListingStatus status);
+
+    long countBySellerId(Long sellerId);
+
+    @EntityGraph(attributePaths = {"seller"})
+    List<Listing> findByStatus(ListingStatus status);
+}

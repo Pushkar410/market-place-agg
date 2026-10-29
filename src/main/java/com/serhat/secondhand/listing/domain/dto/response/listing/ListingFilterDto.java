@@ -1,0 +1,51 @@
+package com.serhat.secondhand.listing.domain.dto.response.listing;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.serhat.secondhand.listing.domain.entity.enums.base.Currency;
+import com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus;
+import com.serhat.secondhand.listing.domain.entity.enums.base.ListingType;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+
+@Getter
+@Setter
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "listingType",
+        visible = true
+)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = VehicleListingFilterDto.class, name = "VEHICLE"),
+        @JsonSubTypes.Type(value = ElectronicListingFilterDto.class, name = "ELECTRONICS"),
+        @JsonSubTypes.Type(value = RealEstateFilterDto.class, name = "REAL_ESTATE"),
+        @JsonSubTypes.Type(value = BooksListingFilterDto.class, name = "BOOKS"),
+        @JsonSubTypes.Type(value = ClothingListingFilterDto.class, name = "CLOTHING"),
+        @JsonSubTypes.Type(value = SportsListingFilterDto.class, name = "SPORTS")
+})
+public abstract class ListingFilterDto {
+    private ListingType listingType;
+    private ListingStatus status;
+    private String title;
+    private Long sellerId;
+    private String city;
+    private String district;
+    private String cityKey;
+    private String districtKey;
+    private String neighborhoodKey;
+
+    private BigDecimal minPrice;
+    private BigDecimal maxPrice;
+    private Currency currency;
+
+    private String sortBy = "createdAt";
+    private String sortDirection = "DESC";
+
+    private Integer page = 0;
+    private Integer size = 10;
+}

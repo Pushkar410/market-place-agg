@@ -1,0 +1,60 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+# Yerel sırlar (spring.config.import optional)
+config/application-local-secret.yml
+.env
+**/.env
+
+# Tek seferlik geliştirici scriptleri (repoya gitmez)
+secondhand-frontend/fix-*.cjs
+secondhand-frontend/i18n-codemod.js
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Veritabanı dump'ları repoda tutulmaz (PII / finansal veri sızıntı riski).
+# Mevcut secondhand_dump.sql bilinçli olarak history'den filter-repo ile kaldırılmıştır.
+secondhand_dump.sql
+*.dump
+*.sql.gz
+
+# Katalog seed verileri — dahil edilir (başlatma için zorunlu kataloglar)
+# src/main/resources/data/
+
+# Root scripts and scratch files
+/*.py
+/scratch/
+/plan*.md

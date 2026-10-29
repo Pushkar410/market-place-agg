@@ -1,0 +1,42 @@
+package com.serhat.secondhand.listing.detail.strategy;
+
+import com.serhat.secondhand.listing.detail.ListingDetailStrategy;
+import com.serhat.secondhand.listing.domain.entity.Listing;
+import com.serhat.secondhand.listing.domain.entity.SportsListing;
+import com.serhat.secondhand.listing.domain.entity.enums.base.ListingType;
+import org.springframework.stereotype.Service;
+
+@Service
+public class SportsDetailStrategy implements ListingDetailStrategy {
+
+    @Override
+    public String getDetailSummary(Listing listing) {
+        if (!(listing instanceof SportsListing sports)) {
+            return "";
+        }
+
+        String discipline = sports.getDiscipline() != null ? sports.getDiscipline().getLabel().toLowerCase() : null;
+        String equipmentType = sports.getEquipmentType() != null ? sports.getEquipmentType().getLabel().toLowerCase() : null;
+        String condition = sports.getCondition() != null ? sports.getCondition().getLabel().toLowerCase() : null;
+
+        StringBuilder sb = new StringBuilder("Bu spor ürünü");
+        if (discipline != null && !discipline.isBlank()) {
+            sb.append(" ").append(discipline).append(" için");
+        }
+        if (equipmentType != null && !equipmentType.isBlank()) {
+            sb.append(" ").append(equipmentType);
+        }
+        if (condition != null && !condition.isBlank()) {
+            sb.append(", ").append(condition).append(" kondisyondadır");
+        }
+        sb.append(".");
+
+        return sb.toString();
+    }
+
+    @Override
+    public boolean supports(ListingType type) {
+        return type == ListingType.SPORTS;
+    }
+}
+

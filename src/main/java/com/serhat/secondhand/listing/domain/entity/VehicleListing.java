@@ -1,0 +1,90 @@
+package com.serhat.secondhand.listing.domain.entity;
+
+import com.serhat.secondhand.listing.domain.entity.enums.common.Color;
+import com.serhat.secondhand.listing.domain.entity.enums.vehicle.*;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.SuperBuilder;
+
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "vehicle_listings")
+@Getter @Setter
+@NoArgsConstructor
+@SuperBuilder
+ @org.hibernate.annotations.BatchSize(size = 20)
+public class VehicleListing extends Listing {
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_type_id")
+    private VehicleType vehicleType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "car_brand_id")
+    private CarBrand brand;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_model_id")
+    private VehicleModel model;
+
+    private Integer year;
+    private Integer mileage;
+    private Integer engineCapacity;
+    
+    @Enumerated(EnumType.STRING)
+    private GearType gearbox;
+    
+    @Enumerated(EnumType.STRING)
+    private SeatCount seatCount;
+
+    @Enumerated(EnumType.STRING)
+    private Doors doors;
+
+    private Integer wheels;
+
+    @Enumerated(EnumType.STRING)
+    private Color color;
+
+    private Integer fuelCapacity;
+    private Integer fuelConsumption;
+    private Integer horsePower;
+    private Integer kilometersPerLiter;
+
+    @Enumerated(EnumType.STRING)
+    private FuelType fuelType;
+
+    private boolean swap;
+
+    private Boolean accidentHistory;
+
+    private String accidentDetails;
+
+    private LocalDate inspectionValidUntil;
+
+    @Enumerated(EnumType.STRING)
+    private Drivetrain drivetrain;
+
+    @Enumerated(EnumType.STRING)
+    private BodyType bodyType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_generation_id")
+    private VehicleGeneration generation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_engine_id")
+    private VehicleEngine engine;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_trim_id")
+    private VehicleTrim trim;
+}

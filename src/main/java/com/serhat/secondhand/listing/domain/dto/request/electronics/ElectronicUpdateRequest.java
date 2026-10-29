@@ -1,0 +1,53 @@
+package com.serhat.secondhand.listing.domain.dto.request.electronics;
+
+import com.serhat.secondhand.listing.domain.entity.enums.common.Color;
+import com.serhat.secondhand.listing.domain.entity.enums.electronic.ElectronicConnectionType;
+import com.serhat.secondhand.listing.domain.entity.enums.electronic.Processor;
+import com.serhat.secondhand.listing.domain.entity.enums.electronic.StorageType;
+import com.serhat.secondhand.listing.domain.dto.request.common.BaseListingUpdateRequest;
+
+import com.serhat.secondhand.listing.domain.entity.enums.electronic.ElectronicCondition;
+import java.time.LocalDate;
+import java.util.Optional;
+import java.util.UUID;
+
+public record ElectronicUpdateRequest(
+        BaseListingUpdateRequest base,
+        Optional<Integer> quantity,
+        Optional<UUID> electronicTypeId,
+        Optional<UUID> electronicBrandId,
+        Optional<UUID> electronicModelId,
+        Optional<String> origin,
+        Optional<Boolean> warrantyProof,
+        Optional<Integer> year,
+        Optional<Color> color,
+        Optional<Integer> ram,
+        Optional<Integer> storage,
+        Optional<StorageType> storageType,
+        Optional<Processor> processor,
+        Optional<Integer> screenSize,
+        Optional<String> gpuModel,
+        Optional<String> operatingSystem,
+        Optional<Integer> batteryHealthPercent,
+        Optional<Integer> batteryCapacityMah,
+        Optional<Integer> cameraMegapixels,
+        Optional<Boolean> supports5g,
+        Optional<Boolean> dualSim,
+        Optional<Boolean> hasNfc,
+        Optional<ElectronicConnectionType> connectionType,
+        Optional<Boolean> wireless,
+        Optional<Boolean> noiseCancelling,
+        Optional<Boolean> hasMicrophone,
+        Optional<Integer> batteryLifeHours,
+        Optional<Boolean> batteryReplaced,
+        Optional<Boolean> batteryOriginal,
+        Optional<Boolean> screenReplaced,
+        Optional<Boolean> bodyReplaced,
+        Optional<Boolean> faceIdWorking,
+        Optional<Boolean> touchIdWorking,
+        Optional<Boolean> hasBox,
+        Optional<Boolean> hasInvoice,
+        Optional<Boolean> imeiRegistered,
+        Optional<LocalDate> warrantyEndDate,
+        Optional<ElectronicCondition> condition
+) {}

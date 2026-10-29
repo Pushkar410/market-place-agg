@@ -1,0 +1,132 @@
+package com.serhat.secondhand.core.config;
+
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.util.backoff.FixedBackOff;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+@EnableKafka
+public class KafkaConfig {
+
+    public static final String PAYMENT_COMPLETED_TOPIC = "payment.completed.v1";
+    public static final String PAYMENT_FAILED_TOPIC = "payment.failed.v1";
+    public static final String PAYMENT_REFUNDED_TOPIC = "payment.refunded.v1";
+    public static final String MAIL_DISPATCH_TOPIC = "mail.dispatch.v1";
+
+    @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
+    private String bootstrapServers;
+
+    @Bean
+    public ConsumerFactory<String, Object> consumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        JsonDeserializer<Object> jsonDeserializer = new JsonDeserializer<>(Object.class);
+        jsonDeserializer.addTrustedPackages("com.serhat.secondhand.*", "*");
+        jsonDeserializer.setUseTypeHeaders(true);
+
+        ErrorHandlingDeserializer<Object> errorHandlingValueDeserializer =
+                new ErrorHandlingDeserializer<>(jsonDeserializer);
+
+        ErrorHandlingDeserializer<String> errorHandlingKeyDeserializer =
+                new ErrorHandlingDeserializer<>(new StringDeserializer());
+
+        return new DefaultKafkaConsumerFactory<>(
+                props, errorHandlingKeyDeserializer, errorHandlingValueDeserializer);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, Object> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory());
+        factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1000L, 2L)));
+        return factory;
+    }
+
+    @Bean
+    public NewTopic paymentCompletedTopic(
+            @Value("${app.kafka.topics.payment-completed-partitions:3}") int partitions,
+            @Value("${app.kafka.topics.payment-completed-replicas:1}") int replicas) {
+        return TopicBuilder.name(PAYMENT_COMPLETED_TOPIC)
+                .partitions(partitions)
+                .replicas(replicas)
+                .build();
+    }
+
+    @Bean
+    public NewTopic paymentFailedTopic(
+            @Value("${app.kafka.topics.payment-failed-partitions:3}") int partitions,
+            @Value("${app.kafka.topics.payment-failed-replicas:1}") int replicas) {
+        return TopicBuilder.name(PAYMENT_FAILED_TOPIC)
+                .partitions(partitions)
+                .replicas(replicas)
+                .build();
+    }
+
+    @Bean
+    public NewTopic paymentRefundedTopic(
+            @Value("${app.kafka.topics.payment-refunded-partitions:3}") int partitions,
+            @Value("${app.kafka.topics.payment-refunded-replicas:1}") int replicas) {
+        return TopicBuilder.name(PAYMENT_REFUNDED_TOPIC)
+                .partitions(partitions)
+                .replicas(replicas)
+                .build();
+    }
+
+    @Bean
+    public NewTopic escrowReleasedTopic(
+            @Value("${app.kafka.topics.escrow-released-partitions:3}") int partitions,
+            @Value("${app.kafka.topics.escrow-released-replicas:1}") int replicas) {
+        return TopicBuilder.name(com.serhat.secondhand.escrow.application.EscrowKafkaProducer.ESCROW_RELEASED_TOPIC)
+                .partitions(partitions)
+                .replicas(replicas)
+                .build();
+    }
+
+    @Bean
+    public NewTopic orderCancelledTopic(
+            @Value("${app.kafka.topics.order-cancelled-partitions:3}") int partitions,
+            @Value("${app.kafka.topics.order-cancelled-replicas:1}") int replicas) {
+        return TopicBuilder.name(com.serhat.secondhand.order.application.OrderKafkaProducer.ORDER_CANCELLED_TOPIC)
+                .partitions(partitions)
+                .replicas(replicas)
+                .build();
+    }
+
+    @Bean
+    public NewTopic orderRefundedTopic(
+            @Value("${app.kafka.topics.order-refunded-partitions:3}") int partitions,
+            @Value("${app.kafka.topics.order-refunded-replicas:1}") int replicas) {
+        return TopicBuilder.name(com.serhat.secondhand.order.application.OrderKafkaProducer.ORDER_REFUNDED_TOPIC)
+                .partitions(partitions)
+                .replicas(replicas)
+                .build();
+    }
+
+    @Bean
+    public NewTopic mailDispatchTopic(
+            @Value("${app.kafka.topics.mail-dispatch-partitions:3}") int partitions,
+            @Value("${app.kafka.topics.mail-dispatch-replicas:1}") int replicas) {
+        return TopicBuilder.name(MAIL_DISPATCH_TOPIC)
+                .partitions(partitions)
+                .replicas(replicas)
+                .build();
+    }
+}

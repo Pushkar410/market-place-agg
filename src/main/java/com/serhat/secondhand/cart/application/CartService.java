@@ -1,0 +1,244 @@
+package com.serhat.secondhand.cart.application;
+
+import com.serhat.secondhand.cart.config.CartConfig;
+import com.serhat.secondhand.cart.dto.AddToCartRequest;
+import com.serhat.secondhand.cart.dto.CartDto;
+import com.serhat.secondhand.cart.dto.UpdateCartItemRequest;
+import com.serhat.secondhand.cart.entity.Cart;
+import com.serhat.secondhand.cart.mapper.CartMapper;
+import com.serhat.secondhand.cart.repository.CartRepository;
+import com.serhat.secondhand.cart.util.CartErrorCodes;
+import com.serhat.secondhand.cart.validator.CartValidator;
+import com.serhat.secondhand.core.result.Result;
+import com.serhat.secondhand.listing.domain.dto.response.listing.ListingDto;
+import com.serhat.secondhand.listing.domain.entity.Listing;
+import com.serhat.secondhand.listing.domain.repository.listing.ListingRepository;
+import com.serhat.secondhand.listing.application.common.ListingEnrichmentService;
+import com.serhat.secondhand.user.application.IUserService;
+import com.serhat.secondhand.user.domain.entity.User;
+import com.serhat.secondhand.inventory.application.InventoryService;
+import com.serhat.secondhand.user.util.UserErrorCodes;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+@Transactional
+public class CartService {
+
+    private final CartRepository cartRepository;
+    private final CartMapper cartMapper;
+    private final IUserService userService;
+    private final CartValidator cartValidator;
+    private final ListingEnrichmentService enrichmentService;
+    private final ListingRepository listingRepository;
+    private final CartConfig cartConfig;
+    private final CartReservationScheduler cartReservationScheduler;
+    private final InventoryService inventoryService;
+    private final CartSocialMetricService cartSocialMetricService;
+
+    @Transactional
+    public Result<Page<CartDto>> getCartItems(Long userId, Pageable pageable) {
+        clearExpiredReservationsIfEnabled();
+        Result<User> userResult = userService.findById(userId);
+        if (userResult.isError()) {
+            return Result.error(userResult.getErrorCode());
+        }
+
+        Page<Cart> cartPage = cartRepository.findByUserIdWithListing(userId, pageable);
+
+        Page<CartDto> dtoPage = cartPage.map(cartMapper::toDto);
+
+        List<CartDto> content = dtoPage.getContent();
+        if (!content.isEmpty()) {
+            List<ListingDto> listings = content.stream()
+                    .map(CartDto::getListing)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            enrichmentService.enrich(listings, userId);
+        }
+
+        return Result.success(dtoPage);
+    }
+
+    private void applyReservationIfLowStock(Listing listing, Cart cartItem) {
+        Integer qty = inventoryService.getAvailableQuantity(listing.getId());
+        int threshold = Optional.ofNullable(cartConfig.getReservation().getThreshold()).orElse(3);
+        LocalDateTime now = LocalDateTime.now(getConfiguredZoneId());
+        cartItem.setReservedAt(now);
+        cartItem.setReservationEndTime(now.plusMinutes(cartConfig.getReservation().getTimeoutDuration().toMinutes()));
+        if (qty != null && qty <= threshold) {
+            cartItem.setIsReserved(true);
+        } else {
+            cartItem.setIsReserved(false);
+        }
+    }
+
+    @Transactional
+    protected Result<CartDto> processCartAction(
+            Long userId,
+            UUID listingId,
+            Integer requestedQty,
+            String notes,
+            boolean isUpdate
+    ) {
+        Result<User> userResult = userService.findById(userId);
+        if (userResult.isError()) {
+            return Result.error(UserErrorCodes.USER_NOT_FOUND);
+        }
+        User user = userResult.getData();
+
+        Listing listing = listingRepository.findById(listingId)
+                .orElse(null);
+        if (listing == null) {
+            return Result.error(CartErrorCodes.LISTING_NOT_FOUND);
+        }
+
+        Result<Void> listingValidation = cartValidator.validateListing(listing,userId);
+        if (listingValidation.isError()) {
+            return Result.error(listingValidation.getErrorCode());
+        }
+
+        Optional<Cart> existingCartItemOpt = cartRepository
+                .findByUserIdAndListingId(userId, listing.getId());
+
+        int currentInCartQty = existingCartItemOpt
+                .map(Cart::getQuantity)
+                .orElse(0);
+        int targetQty = resolveTargetQuantity(requestedQty, isUpdate, currentInCartQty);
+        int finalTotalQty = isUpdate ? targetQty : (currentInCartQty + targetQty);
+        if (finalTotalQty < 1) {
+            return Result.error(CartErrorCodes.INVALID_QUANTITY);
+        }
+
+        // Lightweight inventory validation: ensure listing has enough stock without holding DB locks
+        Result<Void> reservationValidation = cartValidator.validateReservationPossible(
+                listing,
+                finalTotalQty,
+                currentInCartQty,
+                0
+        );
+        if (reservationValidation.isError()) {
+            return Result.error(reservationValidation.getErrorCode());
+        }
+
+        Cart cartItem = existingCartItemOpt.orElseGet(() ->
+                Cart.builder()
+                        .user(user)
+                        .listing(listing)
+                        .build()
+        );
+
+        cartItem.setQuantity(finalTotalQty);
+        // Update senaryosunda not alanının temizlenebilmesi için null da yazılır.
+        if (isUpdate || notes != null) {
+            cartItem.setNotes(notes);
+        }
+
+        Cart savedCart;
+        try {
+            savedCart = cartRepository.save(cartItem);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Concurrent cart write conflict for user {} and listing {}", userId, listingId, ex);
+            return Result.error(CartErrorCodes.RESERVATION_FAILED);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            log.warn("Optimistic cart write conflict for user {} and listing {}", userId, listingId, ex);
+            return Result.error(CartErrorCodes.RESERVATION_FAILED);
+        }
+        CartDto dto = cartMapper.toDto(savedCart);
+        cartSocialMetricService.recordListingAddedToCart(listingId, userId);
+
+        enrichmentService.enrichInPlace(dto.getListing(), userId);
+        return Result.success(dto);
+    }
+
+    private ZoneId getConfiguredZoneId() {
+        String configuredZone = Optional.ofNullable(cartConfig.getZoneId()).orElse("Europe/Istanbul");
+        return ZoneId.of(configuredZone);
+    }
+
+
+    @Transactional
+    public Result<CartDto> addToCart(Long userId, AddToCartRequest request) {
+        return processCartAction(userId, request.getListingId(), request.getQuantity(), request.getNotes(), false);
+    }
+
+    @Transactional
+    public Result<CartDto> updateCartItem(Long userId, UUID listingId, UpdateCartItemRequest request) {
+        return processCartAction(userId, listingId, request.getQuantity(), request.getNotes(), true);
+    }
+
+    @Transactional
+    public Result<Void> removeFromCart(Long userId, UUID listingId) {
+        if (!cartRepository.existsByUserIdAndListingId(userId, listingId)) {
+            return Result.error(CartErrorCodes.ITEM_NOT_FOUND_IN_CART);
+        }
+        cartRepository.deleteByUserIdAndListingId(userId, listingId);
+        cartSocialMetricService.recordListingRemovedFromCart(listingId, userId);
+        return Result.success();
+    }
+
+    @Transactional
+    public Result<Void> clearCart(Long userId) {
+        List<Cart> userCarts = cartRepository.findByUserId(userId);
+        if (!userCarts.isEmpty()) {
+            List<UUID> listingIds = userCarts.stream()
+                    .map(c -> c.getListing() != null ? c.getListing().getId() : null)
+                    .filter(Objects::nonNull)
+                    .toList();
+            cartRepository.deleteByUserId(userId);
+            cartSocialMetricService.recordListingsRemovedFromCart(listingIds, userId);
+        } else {
+            cartRepository.deleteByUserId(userId);
+        }
+        return Result.success();
+    }
+
+
+    @Transactional(readOnly = true)
+    public Result<Long> getCartItemCount(Long userId) {
+        return Result.success(cartRepository.sumQuantityByUserId(userId));
+    }
+
+    @Transactional(readOnly = true)
+    public Result<Boolean> isInCart(Long userId, UUID listingId) {
+        return Result.success(cartRepository.existsByUserIdAndListingId(userId, listingId));
+    }
+
+    @Transactional(readOnly = true)
+    public Result<Integer> getActiveReservationCount(UUID listingId) {
+        int count = cartSocialMetricService.getInCartCount(listingId);
+        return Result.success(count);
+    }
+
+    private int resolveTargetQuantity(Integer requestedQty, boolean isUpdate, int currentInCartQty) {
+        if (requestedQty != null) {
+            return requestedQty;
+        }
+        if (isUpdate && currentInCartQty > 0) {
+            return currentInCartQty;
+        }
+        return Optional.ofNullable(cartConfig.getDefaults().getQuantity()).orElse(1);
+    }
+
+    private void clearExpiredReservationsIfEnabled() {
+        if (cartConfig.getReservation().isEnabled()) {
+            cartReservationScheduler.clearExpiredReservationsNow();
+        }
+    }
+}

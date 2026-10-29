@@ -1,0 +1,108 @@
+package com.serhat.secondhand.listing.domain.dto.response.listing;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.serhat.secondhand.campaign.entity.CampaignDiscountKind;
+import com.serhat.secondhand.favorite.domain.dto.FavoriteStatsDto;
+import com.serhat.secondhand.listing.domain.dto.response.books.BooksListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.clothing.ClothingListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.electronics.ElectronicListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.realestate.RealEstateListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.sports.SportsListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.vehicle.VehicleListingDto;
+import com.serhat.secondhand.listing.domain.entity.enums.base.Currency;
+import com.serhat.secondhand.listing.domain.entity.enums.base.ListingStatus;
+import com.serhat.secondhand.listing.domain.entity.enums.base.ListingType;
+import com.serhat.secondhand.review.dto.ReviewDto;
+import com.serhat.secondhand.review.dto.ReviewStatsDto;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "type",
+        visible = true)
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = VehicleListingDto.class, name = "VEHICLE"),
+    @JsonSubTypes.Type(value = ElectronicListingDto.class, name = "ELECTRONICS"),
+    @JsonSubTypes.Type(value = RealEstateListingDto.class, name = "REAL_ESTATE"),
+    @JsonSubTypes.Type(value = ClothingListingDto.class, name = "CLOTHING"),
+    @JsonSubTypes.Type(value = BooksListingDto.class, name = "BOOKS"),
+    @JsonSubTypes.Type(value = SportsListingDto.class, name = "SPORTS")
+})
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public abstract class ListingDto {
+
+    private UUID id;
+    private String listingNo;
+    private String title;
+    private String description;
+    private BigDecimal price;
+    private Integer quantity;
+    private Currency currency;
+    private ListingStatus status;
+    private boolean isListingFeePaid;
+    private String city;
+    private String district;
+    private String cityKey;
+    private String districtKey;
+    private String neighborhoodKey;
+    private String imageUrl;
+    private boolean allowMeetup;
+    private String sellerName;
+    private String sellerSurname;
+    private Long sellerId;
+    /** İlan listesi/detay: N+1 önleme için API tarafında doldurulur. */
+    private boolean sellerGreatSellerEligible;
+
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate sellerAccountCreationDate;
+    
+    private ListingType type;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createdAt;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") 
+    private LocalDateTime updatedAt;
+    
+    private FavoriteStatsDto favoriteStats;
+    private ReviewStatsDto reviewStats;
+    private List<ReviewDto> reviews;
+    private ListingViewStatsDto viewStats;
+    private Long viewCount;
+    private ListingSocialProofDto socialProof;
+
+    private BigDecimal campaignPrice;
+    private BigDecimal campaignDiscountAmount;
+    private CampaignDiscountKind campaignDiscountKind;
+    private BigDecimal campaignValue;
+    private UUID campaignId;
+    private String campaignName;
+
+    /**
+     * Root-level getter for backward-compatibility with clients expecting listing.favoriteCount.
+     */
+    public Long getFavoriteCount() {
+        if (favoriteStats != null && favoriteStats.getFavoriteCount() != null) {
+            return favoriteStats.getFavoriteCount();
+        }
+        if (socialProof != null) {
+            return socialProof.getFavoriteCount();
+        }
+        return 0L;
+    }
+}

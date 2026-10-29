@@ -1,0 +1,142 @@
+package com.serhat.secondhand.auth.application;
+
+import com.serhat.secondhand.auth.domain.entity.Token;
+import com.serhat.secondhand.auth.domain.entity.enums.TokenStatus;
+import com.serhat.secondhand.auth.domain.entity.enums.TokenType;
+import com.serhat.secondhand.auth.domain.repository.TokenRepository;
+import com.serhat.secondhand.user.domain.entity.User;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@RequiredArgsConstructor
+@Service
+@Slf4j
+public class TokenService {
+
+    private final TokenRepository tokenRepository;
+
+    @Transactional
+    public Token saveToken(String tokenValue, TokenType tokenType, User user, LocalDateTime expiresAt, Token oldRefreshToken, boolean rememberMe) {
+        if (tokenType != TokenType.REFRESH_TOKEN) {
+            rememberMe = false;
+        }
+        Token token = new Token();
+        token.setToken(tokenValue);
+        token.setTokenType(tokenType);
+        token.setTokenStatus(TokenStatus.ACTIVE);
+        token.setUser(user);
+        token.setExpiresAt(expiresAt);
+        token.setRememberMe(rememberMe);
+
+        if (tokenType == TokenType.REFRESH_TOKEN) {
+            if (oldRefreshToken == null) {
+                token.setFamilyId(UUID.randomUUID());
+            } else {
+                token.setFamilyId(oldRefreshToken.getFamilyId());
+                token.setParentId(oldRefreshToken.getId());
+            }
+        }
+
+        Token savedToken = tokenRepository.save(token);
+        log.info("Token saved - Type: {}, User: {}", tokenType, user.getUsername());
+        return savedToken;
+    }
+
+    public List<Token> findActiveTokensByUser(User user) {
+        return tokenRepository.findByUserAndTokenStatus(user, TokenStatus.ACTIVE);
+    }
+
+    public Optional<Token> findActiveRefreshTokenByUser(User user) {
+        return tokenRepository.findByUserAndTokenTypeAndTokenStatus(user, TokenType.REFRESH_TOKEN, TokenStatus.ACTIVE)
+                .stream().findFirst();
+    }
+
+    @Transactional
+    public void revokeUserRefreshTokens(User user) {
+        int revokedCount = tokenRepository.bulkUpdateUserTokensByTypeAndStatus(
+                user,
+                TokenType.REFRESH_TOKEN,
+                TokenStatus.ACTIVE,
+                TokenStatus.REVOKED
+        );
+        if (revokedCount > 0) {
+            log.info("Revoked {} active refresh tokens for user: {}", revokedCount, user.getUsername());
+        }
+    }
+
+    @Transactional
+    public void revokeToken(String tokenValue) {
+        tokenRepository.findByToken(tokenValue)
+                .ifPresent(token -> {
+                    token.setTokenStatus(TokenStatus.REVOKED);
+                    tokenRepository.save(token);
+                    log.info("Token revoked - Type: {}, User: {}", token.getTokenType(), token.getUser().getUsername());
+                });
+    }
+
+    @Transactional
+    public void revokeAllUserTokens(User user) {
+        int revokedCount = tokenRepository.bulkUpdateUserTokensByStatus(
+                user,
+                TokenStatus.ACTIVE,
+                TokenStatus.REVOKED
+        );
+        if (revokedCount > 0) {
+            log.info("Revoked {} active tokens for user: {}", revokedCount, user.getUsername());
+        }
+    }
+
+    @Transactional
+    public void revokeTokenFamily(UUID familyId) {
+        if (familyId == null) return;
+        int revokedCount = tokenRepository.bulkUpdateTokenFamilyStatus(
+                familyId,
+                TokenStatus.REVOKED
+        );
+        if (revokedCount > 0) {
+            log.warn("Revoked {} tokens for family: {}", revokedCount, familyId);
+        }
+    }
+
+    @Transactional
+    public void cleanupExpiredTokens() {
+        LocalDateTime now = LocalDateTime.now();
+        int expiredCount = tokenRepository.bulkExpireTokens(
+                now,
+                TokenStatus.ACTIVE,
+                TokenStatus.EXPIRED
+        );
+        if (expiredCount > 0) {
+            log.info("Cleaned up {} expired tokens", expiredCount);
+        } else {
+            log.debug("No expired tokens found to cleanup");
+        }
+    }
+
+    public boolean isTokenValid(String tokenValue) {
+        return tokenRepository.findByTokenAndTokenStatus(tokenValue, TokenStatus.ACTIVE)
+                .map(token -> token.getExpiresAt().isAfter(LocalDateTime.now()))
+                .orElse(false);
+    }
+
+    public Optional<Token> findByToken(String tokenValue) {
+        return tokenRepository.findByToken(tokenValue);
+    }
+
+    public Optional<Token> findByUserAndType(User user, TokenType tokenType) {
+        return tokenRepository.findByUserAndTokenTypeAndTokenStatus(user, tokenType, TokenStatus.ACTIVE)
+                .stream().findFirst();
+    }
+
+
+    public Optional<TokenStatus> getTokenStatus(String tokenValue) {
+        return tokenRepository.findByToken(tokenValue).map(Token::getTokenStatus);
+    }
+}

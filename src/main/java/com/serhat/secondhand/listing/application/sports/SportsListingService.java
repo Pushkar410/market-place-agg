@@ -1,0 +1,132 @@
+package com.serhat.secondhand.listing.application.sports;
+
+import com.serhat.secondhand.core.result.Result;
+import com.serhat.secondhand.listing.application.category.AbstractListingService;
+import com.serhat.secondhand.listing.application.filter.GenericListingFilterService;
+import com.serhat.secondhand.listing.application.common.ListingValidationService;
+import com.serhat.secondhand.listing.aspect.TrackPriceChange;
+import com.serhat.secondhand.listing.domain.dto.request.sports.SportsCreateRequest;
+import com.serhat.secondhand.listing.domain.dto.request.sports.SportsUpdateRequest;
+import com.serhat.secondhand.listing.domain.dto.response.listing.ListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.listing.SportsListingFilterDto;
+import com.serhat.secondhand.listing.domain.dto.response.sports.SportsListingDto;
+import com.serhat.secondhand.listing.domain.entity.SportsListing;
+import com.serhat.secondhand.listing.domain.mapper.ListingMapper;
+import com.serhat.secondhand.listing.domain.repository.sports.SportsListingRepository;
+import com.serhat.secondhand.listing.validation.common.ListingValidationEngine;
+import com.serhat.secondhand.listing.validation.sports.SportsSpecValidator;
+import com.serhat.secondhand.user.application.IUserService;
+import com.serhat.secondhand.inventory.application.InventoryService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@Slf4j
+public class SportsListingService extends AbstractListingService<SportsListing, SportsCreateRequest> {
+
+    private final SportsListingRepository sportsRepository;
+    private final GenericListingFilterService<SportsListing, SportsListingFilterDto> genericFilterService;
+    private final SportsFilterPredicateBuilder predicateBuilder;
+    private final List<SportsSpecValidator> sportsSpecValidators;
+    private final SportsListingResolver sportsListingResolver;
+
+    public SportsListingService(
+            SportsListingRepository sportsRepository,
+            ListingValidationService listingValidationService,
+            ListingMapper listingMapper,
+            GenericListingFilterService<SportsListing, SportsListingFilterDto> genericFilterService,
+            SportsFilterPredicateBuilder predicateBuilder,
+            IUserService userService,
+            ListingValidationEngine listingValidationEngine,
+            List<SportsSpecValidator> sportsSpecValidators,
+            SportsListingResolver sportsListingResolver,
+            InventoryService inventoryService) {
+        super(userService, listingValidationService, listingMapper, listingValidationEngine, inventoryService);
+        this.sportsRepository = sportsRepository;
+        this.genericFilterService = genericFilterService;
+        this.predicateBuilder = predicateBuilder;
+        this.sportsSpecValidators = sportsSpecValidators;
+        this.sportsListingResolver = sportsListingResolver;
+    }
+
+    @org.springframework.cache.annotation.CacheEvict(value = "user:profile", allEntries = true)
+    public Result<UUID> createSportsListing(SportsCreateRequest request, Long sellerId) {
+        return createListing(request, sellerId);
+    }
+
+    @Override
+    protected String getListingType() {
+        return "Sports";
+    }
+
+    @Override
+    protected SportsListing mapRequestToEntity(SportsCreateRequest request) {
+        return listingMapper.toSportsEntity(request);
+    }
+
+    @Override
+    protected boolean requiresQuantityValidation() {
+        return true;
+    }
+
+    @Override
+    protected Result<SportsResolution> resolveEntities(SportsCreateRequest request) {
+        return sportsListingResolver.resolve(
+                request.disciplineId(),
+                request.equipmentTypeId(),
+                request.conditionId()
+        );
+    }
+
+    @Override
+    protected void applyResolution(SportsListing entity, Object resolution) {
+        SportsResolution res = (SportsResolution) resolution;
+        entity.setDiscipline(res.discipline());
+        entity.setEquipmentType(res.equipmentType());
+        entity.setCondition(res.condition());
+    }
+
+    @Override
+    protected Result<Void> validate(SportsListing entity) {
+        return listingValidationEngine.cleanupAndValidate(entity, sportsSpecValidators);
+    }
+
+    @Override
+    protected SportsListing save(SportsListing entity) {
+        return sportsRepository.save(entity);
+    }
+
+    @Override
+    protected Integer extractQuantity(SportsCreateRequest request) {
+        return request.quantity();
+    }
+
+    @Transactional
+    @TrackPriceChange(reason = "Price updated via listing edit")
+    @org.springframework.cache.annotation.CacheEvict(value = "user:profile", allEntries = true)
+    public Result<Void> updateSportsListing(UUID id, SportsUpdateRequest request, Long currentUserId) {
+        return standardUpdate(
+                id, request, currentUserId,
+                request.quantity(),
+                sportsRepository::findById,
+                existing -> sportsListingResolver.apply(existing, request.disciplineId(), request.equipmentTypeId(), request.conditionId()),
+                (existing, req) -> listingMapper.updateSports(existing, req),
+                existing -> listingValidationEngine.cleanupAndValidate(existing, sportsSpecValidators)
+        );
+    }
+
+    public SportsListingDto getSportsDetails(UUID id) {
+        SportsListing entity = sportsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Sports listing not found"));
+        return listingMapper.toSportsDto(entity);
+    }
+
+    public Page<ListingDto> filterSports(SportsListingFilterDto filters) {
+        return genericFilterService.filter(filters, SportsListing.class, predicateBuilder);
+    }
+}

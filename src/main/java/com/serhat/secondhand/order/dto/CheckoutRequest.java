@@ -1,0 +1,39 @@
+package com.serhat.secondhand.order.dto;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+import java.util.UUID;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class CheckoutRequest {
+
+    @NotNull(message = "Shipping address ID is required")
+    private Long shippingAddressId;
+
+    private Long billingAddressId; 
+    private String notes;
+    private String name;
+
+    @JsonAlias({"paymentType", "providerName"})
+    private String providerName;
+    private String paymentVerificationCode;
+    
+    private boolean agreementsAccepted;
+    private List<UUID> acceptedAgreementIds;
+
+    private String couponCode;
+
+    private UUID offerId;
+
+    private com.serhat.secondhand.order.entity.enums.DeliveryMethod deliveryMethod;
+    private String meetupLocation;
+}

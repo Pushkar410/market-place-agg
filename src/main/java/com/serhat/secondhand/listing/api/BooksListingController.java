@@ -1,0 +1,67 @@
+package com.serhat.secondhand.listing.api;
+
+import com.serhat.secondhand.core.result.Result;
+import com.serhat.secondhand.core.result.ResultResponses;
+
+import com.serhat.secondhand.core.result.ResultResponses;
+import com.serhat.secondhand.listing.api.support.CategoryListingControllerSupport;
+import com.serhat.secondhand.listing.application.books.BooksListingService;
+import com.serhat.secondhand.listing.domain.dto.request.books.BooksCreateRequest;
+import com.serhat.secondhand.listing.domain.dto.request.books.BooksUpdateRequest;
+import com.serhat.secondhand.listing.domain.dto.response.books.BooksListingDto;
+import com.serhat.secondhand.listing.domain.dto.response.listing.BooksListingFilterDto;
+import com.serhat.secondhand.listing.domain.dto.response.listing.ListingDto;
+import com.serhat.secondhand.user.domain.entity.User;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/books")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Books Listings", description = "Books listing CRUD operations and search")
+public class BooksListingController {
+
+    private final BooksListingService booksListingService;
+
+    @PostMapping("/create-listing")
+    @Operation(summary = "Create a new books listing")
+    public ResponseEntity<?> createBooksListing(
+            @Valid @RequestBody BooksCreateRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        var result = booksListingService.createBooksListing(request, currentUser.getId());
+        return CategoryListingControllerSupport.buildCreateResponse(result, "/api/v1/books");
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update a books listing")
+    public ResponseEntity<?> updateBooksListing(
+            @PathVariable UUID id,
+            @Valid @RequestBody BooksUpdateRequest request,
+            @AuthenticationPrincipal User currentUser) {
+        return ResultResponses.ok(booksListingService.updateBooksListing(id, request, currentUser.getId()));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get books listing details")
+    public ResponseEntity<?> getBooksDetails(@PathVariable UUID id) {
+        BooksListingDto dto = booksListingService.getBooksDetails(id);
+        return ResultResponses.ok(Result.success(dto));
+    }
+
+    @PostMapping("/filter")
+    @Operation(summary = "Filter books listings")
+    public ResponseEntity<?> filterBooks(@RequestBody BooksListingFilterDto filters) {
+        Page<ListingDto> page = booksListingService.filterBooks(filters);
+        return ResultResponses.ok(Result.success(page));
+    }
+}

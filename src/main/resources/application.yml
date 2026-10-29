@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: secondHand
+  profiles:
+    default: local
+  config:
+    import:
+      - classpath:config/application-core.yml
+      - classpath:config/application-app.yml
+      - classpath:config/application-email.yml
+      - optional:file:./config/application-local-secret.yml

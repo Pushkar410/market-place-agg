@@ -1,0 +1,22 @@
+package com.serhat.secondhand.listing.domain.dto;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.serhat.secondhand.listing.domain.entity.enums.base.Currency;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Data
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class PriceHistoryDto {
+    private Long id;
+    private UUID listingId;
+    private BigDecimal oldPrice;
+    private BigDecimal newPrice;
+    private Currency currency;
+    private LocalDateTime changeDate;
+    private String changeReason;
+    private BigDecimal percentageChange;
+}

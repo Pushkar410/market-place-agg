@@ -1,0 +1,59 @@
+package com.serhat.secondhand.listing.domain.dto.response.electronics;
+
+import com.serhat.secondhand.listing.domain.dto.response.common.LookupDto;
+import com.serhat.secondhand.listing.domain.dto.response.common.ModelDto;
+import com.serhat.secondhand.listing.domain.dto.response.listing.ListingDto;
+import com.serhat.secondhand.listing.domain.entity.enums.common.Color;
+import com.serhat.secondhand.listing.domain.entity.enums.electronic.ElectronicConnectionType;
+import com.serhat.secondhand.listing.domain.entity.enums.electronic.Processor;
+import com.serhat.secondhand.listing.domain.entity.enums.electronic.StorageType;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
+import com.serhat.secondhand.listing.domain.entity.enums.electronic.ElectronicCondition;
+import java.time.LocalDate;
+
+@EqualsAndHashCode(callSuper = true)
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ElectronicListingDto extends ListingDto {
+   private LookupDto electronicType;
+   private LookupDto electronicBrand;
+   private ModelDto model;
+   private String origin;
+   private boolean warrantyProof;
+   private Integer year;
+   private Color color;
+   private Integer ram;
+   private Integer storage;
+   private StorageType storageType;
+   private Processor processor;
+   private Integer screenSize;
+   private String gpuModel;
+   private String operatingSystem;
+   private Integer batteryHealthPercent;
+   private Integer batteryCapacityMah;
+   private Integer cameraMegapixels;
+   private Boolean supports5g;
+   private Boolean dualSim;
+   private Boolean hasNfc;
+   private ElectronicConnectionType connectionType;
+   private Boolean wireless;
+   private Boolean noiseCancelling;
+   private Boolean hasMicrophone;
+   private Integer batteryLifeHours;
+   private Boolean batteryReplaced;
+   private Boolean batteryOriginal;
+   private Boolean screenReplaced;
+   private Boolean bodyReplaced;
+   private Boolean faceIdWorking;
+   private Boolean touchIdWorking;
+   private Boolean hasBox;
+   private Boolean hasInvoice;
+   private Boolean imeiRegistered;
+   private LocalDate warrantyEndDate;
+   private ElectronicCondition condition;
+}
